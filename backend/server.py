@@ -22,7 +22,7 @@ load_dotenv(ROOT_DIR / ".env")
 
 from providers.emergent_provider import get_primary_provider, get_secondary_provider
 from services.screen_detector import process_image
-from services.image_validator import validate_image_quality
+from services.image_validator import validate_image_quality, is_borderline_quality
 
 # Structured JSON logging
 logging.basicConfig(
@@ -82,6 +82,60 @@ async def resolve_answers(image_path: str, answer_a: str, answer_b: str) -> tupl
     return verified, True
 
 
+def parse_gpt_metadata(raw: str) -> tuple:
+    """
+    Parse CLASSIFY / UNCERTAIN header lines embedded in a GPT-5 response.
+
+    GPT-5 is instructed to start every response with:
+        CLASSIFY: SIMPLE|COMPLEX
+        UNCERTAIN: YES|NO
+
+    Returns:
+        (is_uncertain: bool, is_complex: bool, clean_answer: str)
+    """
+    is_uncertain = False
+    is_complex = False
+    answer_lines = []
+
+    for line in raw.split("\n"):
+        upper = line.strip().upper()
+        if upper.startswith("CLASSIFY:"):
+            is_complex = "COMPLEX" in upper
+        elif upper.startswith("UNCERTAIN:"):
+            is_uncertain = "YES" in upper
+        else:
+            answer_lines.append(line)
+
+    clean = "\n".join(answer_lines).strip()
+    return is_uncertain, is_complex, clean
+
+
+def pick_verification_reason(
+    enable_verification_env: bool,
+    is_uncertain: bool,
+    is_complex: bool,
+    borderline: bool,
+) -> Optional[str]:
+    """
+    Return the reason string if verification should run, else None.
+
+    Priority order (matches product spec):
+      1. Explicit config (ENABLE_VERIFICATION=true)
+      2. GPT-5 reported uncertainty
+      3. Complex question type (puzzle / logic / data / math)
+      4. Borderline image quality
+    """
+    if enable_verification_env:
+        return "config"
+    if is_uncertain:
+        return "gpt5_uncertainty"
+    if is_complex:
+        return "complex_question_type"
+    if borderline:
+        return "borderline_quality"
+    return None
+
+
 async def run_analysis(file: UploadFile, explain: bool, request_id: str) -> dict:
     """Core pipeline: validate → detect → crop → validate quality → analyze."""
     start = time.time()
@@ -115,10 +169,11 @@ async def run_analysis(file: UploadFile, explain: bool, request_id: str) -> dict
     processed, detection = process_image(image_np)
     logger.info(f"rid={request_id} screen_detected={detection['screen_detected']} conf={detection['confidence']}")
 
-    # Image quality check
+    # Image quality check + borderline detection
     is_valid, quality_msg = validate_image_quality(processed)
     if not is_valid:
         raise HTTPException(status_code=400, detail=quality_msg)
+    borderline = is_borderline_quality(processed)
 
     # Save to temp file
     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
@@ -128,16 +183,31 @@ async def run_analysis(file: UploadFile, explain: bool, request_id: str) -> dict
     try:
         primary = get_primary_provider()
 
-        if ENABLE_VERIFICATION:
+        # Step 1: GPT-5 primary analysis (always runs)
+        raw_answer = await primary.analyze(tmp_path, explain)
+
+        # Step 2: Parse self-reported metadata (CLASSIFY / UNCERTAIN headers)
+        is_uncertain, is_complex, clean_answer = parse_gpt_metadata(raw_answer)
+
+        logger.info(
+            f"rid={request_id} uncertain={is_uncertain} "
+            f"complex={is_complex} borderline={borderline}"
+        )
+
+        # Step 3: Smart verification trigger
+        verification_reason = pick_verification_reason(
+            ENABLE_VERIFICATION, is_uncertain, is_complex, borderline
+        )
+
+        if verification_reason:
             secondary = get_secondary_provider()
-            import asyncio
-            answer_a, answer_b = await asyncio.gather(
-                primary.analyze(tmp_path, explain),
-                secondary.analyze(tmp_path, explain)
-            )
-            answers, verification_used = await resolve_answers(tmp_path, answer_a, answer_b)
+            raw_b = await secondary.analyze(tmp_path, explain)
+            _, _, clean_b = parse_gpt_metadata(raw_b)
+            final_answer, _ = await resolve_answers(tmp_path, clean_answer, clean_b)
+            verification_used = True
+            logger.info(f"rid={request_id} verification triggered reason={verification_reason}")
         else:
-            answers = await primary.analyze(tmp_path, explain)
+            final_answer = clean_answer
             verification_used = False
 
         ms = int((time.time() - start) * 1000)
@@ -145,12 +215,13 @@ async def run_analysis(file: UploadFile, explain: bool, request_id: str) -> dict
 
         return {
             "success": True,
-            "answers": answers,
+            "answers": final_answer,
             "screen_detected": detection["screen_detected"],
             "confidence": detection["confidence"],
             "processing_time_ms": ms,
             "model_used": primary.model_name,
             "verification_used": verification_used,
+            "verification_reason": verification_reason,
             "explained": explain
         }
     finally:

@@ -18,15 +18,25 @@ from .vision_provider import VisionProvider
 logger = logging.getLogger("screensolve.providers")
 
 ANSWERS_PROMPT = """You are ScreenSolve, a precision screen answer extractor.
-Analyze this screen image and return ONLY the direct answers.
 
-Format rules:
-- MCQ:          Q1 B) Answer
-- Numerical:    Q2 42
-- Fill-blank:   Q3 Paris
-- Code:         Q4\n```\n<final code only>\n```
-- SQL:          Q5\n```sql\n<query only>\n```
-- General info: 1-2 line summary only
+BEGIN your response with EXACTLY these two header lines — no exceptions:
+CLASSIFY: SIMPLE
+UNCERTAIN: NO
+
+Change CLASSIFY to COMPLEX if the screen contains:
+  puzzle, logical reasoning, data interpretation, complex mathematics,
+  probability, combinatorics, graph analysis, or multi-step inference.
+
+Change UNCERTAIN to YES if:
+  any part of the screen is blurry/cut off, OR you cannot confidently read an answer.
+
+After the two header lines, provide ONLY the direct answers:
+- MCQ:        Q1 B) Answer
+- Numerical:  Q2 42
+- Fill-blank:  Q3 Paris
+- Code:       Q4\n```\n<final code only>\n```
+- SQL:        Q5\n```sql\n<query only>\n```
+- General:    1-2 line summary only
 
 STRICT RULES — never break these:
 - NEVER explain reasoning or show chain-of-thought
@@ -36,9 +46,16 @@ STRICT RULES — never break these:
 - Be extremely concise"""
 
 EXPLAIN_PROMPT = """You are ScreenSolve, a screen content analyzer.
-Analyze this screen and provide answers with brief explanations.
 
-Format:
+BEGIN your response with EXACTLY these two header lines:
+CLASSIFY: SIMPLE
+UNCERTAIN: NO
+
+Change CLASSIFY to COMPLEX for: puzzle, logical reasoning, data interpretation,
+complex math, probability, combinatorics, or graph analysis.
+Change UNCERTAIN to YES if any part of the screen is unclear or you are unsure.
+
+After the two header lines, provide answers with brief explanations:
 Q1 B) Answer
    → [one-sentence explanation]
 Q2 42
