@@ -13,6 +13,7 @@ from difflib import SequenceMatcher
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, APIRouter, File, Form, UploadFile, HTTPException, Request
+from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import numpy as np
@@ -22,7 +23,7 @@ ROOT_DIR = Path(__file__).parent
 sys.path.insert(0, str(ROOT_DIR))
 load_dotenv(ROOT_DIR / ".env")
 
-from providers.emergent_provider import get_primary_provider, get_secondary_provider
+from providers.openrouter_provider import get_primary_provider, get_secondary_provider
 from services.screen_detector import process_image
 from services.image_validator import validate_image_quality, is_borderline_quality
 
@@ -286,10 +287,10 @@ async def analyze_image(
 
     logger.info(f"rid={request_id} endpoint=/analyze ip={client_ip}")
 
-    if not os.environ.get("EMERGENT_LLM_KEY") and not os.environ.get("OPENROUTER_API_KEY"):
-        raise HTTPException(
+    if not os.environ.get("OPENROUTER_API_KEY"):
+        return JSONResponse(
             status_code=503,
-            detail="Vision AI not configured. Set EMERGENT_LLM_KEY or OPENROUTER_API_KEY."
+            content={"success": False, "error": "OPENROUTER_API_KEY is not configured"}
         )
 
     return await run_analysis(file, explain, request_id)
@@ -317,11 +318,11 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup():
-    key = os.environ.get("EMERGENT_LLM_KEY", "")
+    key = os.environ.get("OPENROUTER_API_KEY", "")
     if not key:
-        logger.warning("EMERGENT_LLM_KEY not set — vision analysis will fail on requests")
+        logger.warning("OPENROUTER_API_KEY not set — /analyze and /upload will return 503")
     else:
-        logger.info("ScreenSolve API started. Vision AI configured.")
+        logger.info("ScreenSolve API started. OpenRouter configured.")
 
 
 @app.on_event("shutdown")

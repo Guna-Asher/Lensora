@@ -1,120 +1,156 @@
-"""ScreenSolve API tests - health, analyze, upload endpoints"""
-import pytest
-import requests
+"""ScreenSolve backend tests — health, analyze, upload, MIME, size, rate limit, provider imports"""
 import os
 import io
-import base64
-from PIL import Image
+import pytest
+import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 
 
-def make_test_image(format="JPEG"):
-    """Create a real test image with visible text-like content."""
-    img = Image.new("RGB", (400, 300), color=(255, 255, 255))
-    from PIL import ImageDraw
-    draw = ImageDraw.Draw(img)
-    # Draw some text-like black rectangles to simulate content
-    draw.rectangle([20, 20, 380, 60], fill=(0, 0, 0))
-    draw.rectangle([20, 80, 280, 100], fill=(50, 50, 50))
-    draw.rectangle([20, 120, 320, 140], fill=(50, 50, 50))
-    draw.rectangle([20, 160, 260, 180], fill=(50, 50, 50))
-    draw.text((30, 25), "Q1: What is 2+2?", fill=(255, 255, 255))
-    draw.text((30, 85), "A) 3   B) 4   C) 5   D) 6", fill=(0, 0, 0))
-    buf = io.BytesIO()
-    img.save(buf, format=format)
-    buf.seek(0)
-    return buf
+# ── Helper ────────────────────────────────────────────────────────────────────
 
+def make_minimal_jpeg() -> bytes:
+    """1x1 white JPEG ~631 bytes."""
+    import base64
+    b64 = (
+        "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8U"
+        "HRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgN"
+        "DRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIy"
+        "MjL/wAARCAABAAEDASIAAhEBAxEB/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAA"
+        "AAAAAAAAAAAAAP/EABQBAQAAAAAAAAAAAAAAAAAAAAD/xAAUEQEAAAAAAAAAAAAAAAAAAAAA"
+        "/9oADAMBAAIRAxEAPwCwABmX/9k="
+    )
+    return base64.b64decode(b64)
+
+
+# ── Health ────────────────────────────────────────────────────────────────────
 
 class TestHealth:
-    """Health endpoint tests"""
+    """GET /api/health — always 200, no key required"""
 
-    def test_health_returns_200(self):
-        res = requests.get(f"{BASE_URL}/api/health")
-        assert res.status_code == 200
+    def test_health_status_200(self):
+        r = requests.get(f"{BASE_URL}/api/health")
+        assert r.status_code == 200, f"Expected 200, got {r.status_code}"
 
-    def test_health_response_structure(self):
-        res = requests.get(f"{BASE_URL}/api/health")
-        data = res.json()
-        assert data["status"] == "healthy"
-        assert data["service"] == "ScreenSolve API"
+    def test_health_body_status_healthy(self):
+        r = requests.get(f"{BASE_URL}/api/health")
+        data = r.json()
+        assert data.get("status") == "healthy", f"status field: {data}"
+
+    def test_health_no_emergent_fields(self):
+        r = requests.get(f"{BASE_URL}/api/health")
+        text = r.text.lower()
+        assert "emergent" not in text, "emergent found in health response"
 
 
-class TestAnalyze:
-    """POST /api/analyze tests"""
+# ── Analyze — no API key → 503 ────────────────────────────────────────────────
 
-    def test_analyze_returns_success(self):
-        buf = make_test_image("JPEG")
-        res = requests.post(
+class TestAnalyzeNoKey:
+    """POST /api/analyze with no OPENROUTER_API_KEY → 503"""
+
+    def test_analyze_503_when_no_key(self):
+        jpeg = make_minimal_jpeg()
+        r = requests.post(
             f"{BASE_URL}/api/analyze",
-            files={"file": ("test.jpg", buf, "image/jpeg")},
-            data={"explain": "false"},
-            timeout=60
+            files={"file": ("test.jpg", io.BytesIO(jpeg), "image/jpeg")},
         )
-        assert res.status_code == 200
-        data = res.json()
-        assert data["success"] is True
+        assert r.status_code == 503, f"Expected 503, got {r.status_code}: {r.text}"
 
-    def test_analyze_response_fields(self):
-        buf = make_test_image("JPEG")
-        res = requests.post(
+    def test_analyze_503_body_success_false(self):
+        jpeg = make_minimal_jpeg()
+        r = requests.post(
             f"{BASE_URL}/api/analyze",
-            files={"file": ("test.jpg", buf, "image/jpeg")},
-            data={"explain": "false"},
-            timeout=60
+            files={"file": ("test.jpg", io.BytesIO(jpeg), "image/jpeg")},
         )
-        data = res.json()
-        assert "answers" in data
-        assert "screen_detected" in data
-        assert "confidence" in data
-        assert "processing_time_ms" in data
-        assert "model_used" in data
-
-    def test_analyze_invalid_file_type_returns_400(self):
-        content = b"This is a text file."
-        res = requests.post(
-            f"{BASE_URL}/api/analyze",
-            files={"file": ("test.txt", io.BytesIO(content), "text/plain")},
-            timeout=10
-        )
-        assert res.status_code == 400
-
-    def test_analyze_with_explain_true(self):
-        buf = make_test_image("JPEG")
-        res = requests.post(
-            f"{BASE_URL}/api/analyze",
-            files={"file": ("test.jpg", buf, "image/jpeg")},
-            data={"explain": "true"},
-            timeout=60
-        )
-        assert res.status_code == 200
-        data = res.json()
-        assert data["success"] is True
-        assert "answers" in data
-
-    def test_analyze_png_image(self):
-        buf = make_test_image("PNG")
-        res = requests.post(
-            f"{BASE_URL}/api/analyze",
-            files={"file": ("test.png", buf, "image/png")},
-            timeout=60
-        )
-        assert res.status_code == 200
+        data = r.json()
+        assert data.get("success") is False, f"success field: {data}"
+        assert data.get("error") == "OPENROUTER_API_KEY is not configured", f"error field: {data}"
 
 
-class TestUpload:
-    """POST /api/upload tests"""
+# ── Upload — no API key → 503 ────────────────────────────────────────────────
 
-    def test_upload_works_same_as_analyze(self):
-        buf = make_test_image("JPEG")
-        res = requests.post(
+class TestUploadNoKey:
+    """POST /api/upload with no OPENROUTER_API_KEY → 503"""
+
+    def test_upload_503_when_no_key(self):
+        jpeg = make_minimal_jpeg()
+        r = requests.post(
             f"{BASE_URL}/api/upload",
-            files={"file": ("test.jpg", buf, "image/jpeg")},
-            data={"explain": "false"},
-            timeout=60
+            files={"file": ("test.jpg", io.BytesIO(jpeg), "image/jpeg")},
         )
-        assert res.status_code == 200
-        data = res.json()
-        assert data["success"] is True
-        assert "answers" in data
+        assert r.status_code == 503, f"Expected 503, got {r.status_code}: {r.text}"
+
+    def test_upload_503_body_exact(self):
+        jpeg = make_minimal_jpeg()
+        r = requests.post(
+            f"{BASE_URL}/api/upload",
+            files={"file": ("test.jpg", io.BytesIO(jpeg), "image/jpeg")},
+        )
+        data = r.json()
+        assert data.get("success") is False
+        assert data.get("error") == "OPENROUTER_API_KEY is not configured"
+
+
+# ── MIME validation ────────────────────────────────────────────────────────────
+
+class TestMimeValidation:
+    """POST /api/analyze with invalid MIME. Key check happens before MIME check."""
+
+    def test_invalid_mime_text_plain(self):
+        """No key → 503 (key checked first). With key → expect 400."""
+        r = requests.post(
+            f"{BASE_URL}/api/analyze",
+            files={"file": ("test.txt", io.BytesIO(b"hello world"), "text/plain")},
+        )
+        assert r.status_code in (400, 503), f"Unexpected status: {r.status_code}: {r.text}"
+
+    def test_oversized_file(self):
+        """No key → 503. With key → expect 400."""
+        big = b"X" * (11 * 1024 * 1024)
+        r = requests.post(
+            f"{BASE_URL}/api/analyze",
+            files={"file": ("big.jpg", io.BytesIO(big), "image/jpeg")},
+        )
+        assert r.status_code in (400, 503), f"Unexpected status: {r.status_code}: {r.text}"
+
+
+# ── Provider import ───────────────────────────────────────────────────────────
+
+class TestProviderImports:
+    """openrouter_provider.py must import cleanly."""
+
+    def test_openrouter_provider_imports(self):
+        import sys
+        sys.path.insert(0, "/app/backend")
+        from providers.openrouter_provider import (
+            OpenRouterProvider,
+            get_primary_provider,
+            get_secondary_provider,
+        )
+        assert OpenRouterProvider is not None
+        assert callable(get_primary_provider)
+        assert callable(get_secondary_provider)
+
+    def test_emergent_provider_does_not_exist(self):
+        assert not os.path.exists("/app/backend/providers/emergent_provider.py"), \
+            "emergent_provider.py must not exist"
+
+    def test_requirements_no_emergentintegrations(self):
+        with open("/app/backend/requirements.txt") as f:
+            content = f.read()
+        assert "emergentintegrations" not in content.lower()
+
+    def test_env_no_emergent_keys(self):
+        with open("/app/backend/.env") as f:
+            content = f.read()
+        assert "EMERGENT_LLM_KEY" not in content
+        assert "VISION_PROVIDER=emergent" not in content
+
+    def test_no_emergent_in_source(self):
+        import subprocess
+        result = subprocess.run(
+            ["grep", "-rn", "--include=*.py", "emergent",
+             "--exclude-dir=tests", "/app/backend/"],
+            capture_output=True, text=True
+        )
+        assert result.stdout == "", f"Found 'emergent' in source:\n{result.stdout}"

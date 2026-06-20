@@ -8,7 +8,7 @@
 
 services:
   # ─────────────────────────────────────────────────────────
-  # Backend API — FastAPI + OpenCV
+  # Backend API — FastAPI + OpenCV + OpenRouter
   # ─────────────────────────────────────────────────────────
   - type: web
     name: screensolve-api
@@ -21,21 +21,15 @@ services:
     autoDeploy: true
     envVars:
       # Set this in Render dashboard (never commit real keys)
-      - key: EMERGENT_LLM_KEY
-        sync: false
-      # Optional: set to use OpenRouter instead of Emergent
       - key: OPENROUTER_API_KEY
         sync: false
-      - key: VISION_PROVIDER
-        value: emergent
-      - key: PRIMARY_PROVIDER
-        value: openai
+      # Optional: override OpenRouter base URL (for proxies / self-hosting)
+      - key: OPENROUTER_BASE_URL
+        value: https://openrouter.ai/api/v1
       - key: PRIMARY_MODEL
-        value: gpt-5
-      - key: SECONDARY_PROVIDER
-        value: gemini
+        value: openai/gpt-4o
       - key: SECONDARY_MODEL
-        value: gemini-2.5-pro
+        value: google/gemini-2.5-pro
       - key: ENABLE_VERIFICATION
         value: "false"
       - key: LARGE_QUESTION_THRESHOLD
