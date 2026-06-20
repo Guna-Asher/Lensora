@@ -95,6 +95,25 @@ if (isDevServer) {
       throw err;
     }
   }
+
+  // Patch: webpack-dev-server v5+ removed onAfterSetupMiddleware & onBeforeSetupMiddleware.
+  // Strip them from the devServer config so validation doesn't fail.
+  if (webpackConfig.devServer) {
+    const _origDevServer = webpackConfig.devServer;
+    webpackConfig.devServer = (devServerConfig) => {
+      const cfg = typeof _origDevServer === 'function'
+        ? _origDevServer(devServerConfig)
+        : { ...devServerConfig, ..._origDevServer };
+      // Strip all options removed in webpack-dev-server v5
+      const deprecated = [
+        'onAfterSetupMiddleware', 'onBeforeSetupMiddleware',
+        'https', 'public', 'contentBase', 'watchContentBase',
+        'disableHostCheck', 'useLocalIp', 'sockHost', 'sockPath', 'sockPort',
+      ];
+      deprecated.forEach(k => delete cfg[k]);
+      return cfg;
+    };
+  }
 }
 
 module.exports = webpackConfig;
