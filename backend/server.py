@@ -197,9 +197,28 @@ async def run_analysis(file: UploadFile, explain: bool, request_id: str) -> dict
 
     logger.info(f"rid={request_id} shape={image_np.shape} size={len(content)//1024}KB")
 
-    # Screen detection + perspective correction
+    # Screen detection + perspective correction (two-stage pipeline)
     processed, detection = process_image(image_np)
-    logger.info(f"rid={request_id} screen_detected={detection['screen_detected']} conf={detection['confidence']}")
+
+    # Log internal timing metrics (never exposed to users)
+    _t = detection.get("_timing", {})
+    logger.info(
+        f"rid={request_id} screen_detected={detection['screen_detected']} "
+        f"conf={detection['confidence']} tilt={detection.get('tilt_angle_deg', 0)}° "
+        f"detect={_t.get('detection_ms', 0)}ms warp={_t.get('warp_ms', 0)}ms "
+        f"preprocess={_t.get('total_ms', 0)}ms"
+    )
+
+    # Angle check: reject shots that are too steep to analyze accurately
+    tilt_angle = detection.get("tilt_angle_deg", 0.0)
+    if detection["screen_detected"] and tilt_angle >= 60.0:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Screen angle is too steep ({tilt_angle:.0f}°) to analyze accurately. "
+                "Please retake from a more direct angle (under 60°)."
+            )
+        )
 
     # Image quality check + borderline detection
     is_valid, quality_msg = validate_image_quality(processed)
@@ -245,7 +264,7 @@ async def run_analysis(file: UploadFile, explain: bool, request_id: str) -> dict
         ms = int((time.time() - start) * 1000)
         logger.info(f"rid={request_id} ms={ms} verified={verification_used}")
 
-        return {
+        response: dict = {
             "success": True,
             "answers": final_answer,
             "screen_detected": detection["screen_detected"],
@@ -253,8 +272,19 @@ async def run_analysis(file: UploadFile, explain: bool, request_id: str) -> dict
             "processing_time_ms": ms,
             "model_used": primary.model_name,
             "verification_used": verification_used,
-            "explained": explain
+            "explained": explain,
         }
+
+        # Add caution flag for borderline angles (50°–60°) without rejecting
+        tilt = detection.get("tilt_angle_deg", 0.0)
+        if 50.0 <= tilt < 60.0:
+            response["angle_caution"] = True
+            response["angle_caution_msg"] = (
+                f"Screen captured at a steep angle ({tilt:.0f}°). "
+                "Results may be less accurate. Consider retaking more directly."
+            )
+
+        return response
     finally:
         try:
             os.unlink(tmp_path)

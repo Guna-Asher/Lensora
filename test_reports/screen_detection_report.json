@@ -1,0 +1,375 @@
+{
+  "test_suite_version": "1.0",
+  "summary": {
+    "categories_total": 14,
+    "categories_passed": 14,
+    "categories_failed": 0,
+    "failure_rate_pct": 0.0
+  },
+  "categories": {
+    "laptop_thin_bezel": {
+      "category": "laptop_thin_bezel",
+      "description": "Modern laptop with thin dark bezel",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.94,
+      "avg_tilt_deg": 0.0,
+      "avg_detect_ms": 39.9,
+      "avg_total_ms": 43.2,
+      "image_results": [
+        {
+          "image": "synthetic_laptop_thin_bezel.png",
+          "screen_detected": true,
+          "confidence": 0.94,
+          "tilt_angle_deg": 0.0,
+          "detect_ms": 39.9,
+          "total_ms": 43.2
+        }
+      ],
+      "source": "synthetic"
+    },
+    "monitor_dark_desk": {
+      "category": "monitor_dark_desk",
+      "description": "Black monitor on dark desk",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.94,
+      "avg_tilt_deg": 0.0,
+      "avg_detect_ms": 16.7,
+      "avg_total_ms": 20.3,
+      "image_results": [
+        {
+          "image": "synthetic_monitor_dark_desk.png",
+          "screen_detected": true,
+          "confidence": 0.94,
+          "tilt_angle_deg": 0.0,
+          "detect_ms": 16.7,
+          "total_ms": 20.3
+        }
+      ],
+      "source": "synthetic"
+    },
+    "phone_notch": {
+      "category": "phone_notch",
+      "description": "Mobile phone with notch",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.72,
+      "avg_tilt_deg": 0.0,
+      "avg_detect_ms": 8.0,
+      "avg_total_ms": 10.5,
+      "image_results": [
+        {
+          "image": "synthetic_phone_notch.png",
+          "screen_detected": true,
+          "confidence": 0.72,
+          "tilt_angle_deg": 0.0,
+          "detect_ms": 8.0,
+          "total_ms": 10.5
+        }
+      ],
+      "source": "synthetic"
+    },
+    "phone_punch_hole": {
+      "category": "phone_punch_hole",
+      "description": "Mobile phone with punch-hole camera",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.72,
+      "avg_tilt_deg": 0.0,
+      "avg_detect_ms": 7.2,
+      "avg_total_ms": 9.7,
+      "image_results": [
+        {
+          "image": "synthetic_phone_punch_hole.png",
+          "screen_detected": true,
+          "confidence": 0.72,
+          "tilt_angle_deg": 0.0,
+          "detect_ms": 7.2,
+          "total_ms": 9.7
+        }
+      ],
+      "source": "synthetic"
+    },
+    "tablet": {
+      "category": "tablet",
+      "description": "Tablet screen",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.72,
+      "avg_tilt_deg": 0.0,
+      "avg_detect_ms": 16.3,
+      "avg_total_ms": 21.4,
+      "image_results": [
+        {
+          "image": "synthetic_tablet.png",
+          "screen_detected": true,
+          "confidence": 0.72,
+          "tilt_angle_deg": 0.0,
+          "detect_ms": 16.3,
+          "total_ms": 21.4
+        }
+      ],
+      "source": "synthetic"
+    },
+    "angled_30": {
+      "category": "angled_30",
+      "description": "Angled shot ~30\u00b0",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.94,
+      "avg_tilt_deg": 7.3,
+      "avg_detect_ms": 15.8,
+      "avg_total_ms": 19.0,
+      "image_results": [
+        {
+          "image": "synthetic_angled_30.png",
+          "screen_detected": true,
+          "confidence": 0.94,
+          "tilt_angle_deg": 7.3,
+          "detect_ms": 15.8,
+          "total_ms": 19.0
+        }
+      ],
+      "source": "synthetic"
+    },
+    "angled_45": {
+      "category": "angled_45",
+      "description": "Angled shot ~45\u00b0",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.94,
+      "avg_tilt_deg": 12.7,
+      "avg_detect_ms": 13.6,
+      "avg_total_ms": 16.6,
+      "image_results": [
+        {
+          "image": "synthetic_angled_45.png",
+          "screen_detected": true,
+          "confidence": 0.94,
+          "tilt_angle_deg": 12.7,
+          "detect_ms": 13.6,
+          "total_ms": 16.6
+        }
+      ],
+      "source": "synthetic"
+    },
+    "angled_60": {
+      "category": "angled_60",
+      "description": "Angled shot ~60\u00b0",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.94,
+      "avg_tilt_deg": 16.1,
+      "avg_detect_ms": 13.4,
+      "avg_total_ms": 16.2,
+      "image_results": [
+        {
+          "image": "synthetic_angled_60.png",
+          "screen_detected": true,
+          "confidence": 0.94,
+          "tilt_angle_deg": 16.1,
+          "detect_ms": 13.4,
+          "total_ms": 16.2
+        }
+      ],
+      "source": "synthetic"
+    },
+    "glare": {
+      "category": "glare",
+      "description": "Reflections/glare on screen",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.94,
+      "avg_tilt_deg": 6.6,
+      "avg_detect_ms": 11.6,
+      "avg_total_ms": 14.4,
+      "image_results": [
+        {
+          "image": "synthetic_glare.png",
+          "screen_detected": true,
+          "confidence": 0.94,
+          "tilt_angle_deg": 6.6,
+          "detect_ms": 11.6,
+          "total_ms": 14.4
+        }
+      ],
+      "source": "synthetic"
+    },
+    "dark_mode": {
+      "category": "dark_mode",
+      "description": "Dark mode screen content",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.94,
+      "avg_tilt_deg": 0.0,
+      "avg_detect_ms": 12.5,
+      "avg_total_ms": 15.2,
+      "image_results": [
+        {
+          "image": "synthetic_dark_mode.png",
+          "screen_detected": true,
+          "confidence": 0.94,
+          "tilt_angle_deg": 0.0,
+          "detect_ms": 12.5,
+          "total_ms": 15.2
+        }
+      ],
+      "source": "synthetic"
+    },
+    "light_mode": {
+      "category": "light_mode",
+      "description": "Light mode screen content",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.94,
+      "avg_tilt_deg": 0.0,
+      "avg_detect_ms": 12.1,
+      "avg_total_ms": 14.8,
+      "image_results": [
+        {
+          "image": "synthetic_light_mode.png",
+          "screen_detected": true,
+          "confidence": 0.94,
+          "tilt_angle_deg": 0.0,
+          "detect_ms": 12.1,
+          "total_ms": 14.8
+        }
+      ],
+      "source": "synthetic"
+    },
+    "multi_monitor": {
+      "category": "multi_monitor",
+      "description": "Multiple monitors in frame",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.94,
+      "avg_tilt_deg": 0.0,
+      "avg_detect_ms": 39.3,
+      "avg_total_ms": 43.1,
+      "image_results": [
+        {
+          "image": "synthetic_multi_monitor.png",
+          "screen_detected": true,
+          "confidence": 0.94,
+          "tilt_angle_deg": 0.0,
+          "detect_ms": 39.3,
+          "total_ms": 43.1
+        }
+      ],
+      "source": "synthetic"
+    },
+    "busy_background": {
+      "category": "busy_background",
+      "description": "Busy/cluttered background",
+      "expected_outcome": "detect",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.94,
+      "avg_tilt_deg": 0.0,
+      "avg_detect_ms": 16.6,
+      "avg_total_ms": 18.8,
+      "image_results": [
+        {
+          "image": "synthetic_busy_background.png",
+          "screen_detected": true,
+          "confidence": 0.94,
+          "tilt_angle_deg": 0.0,
+          "detect_ms": 16.6,
+          "total_ms": 18.8
+        }
+      ],
+      "source": "synthetic"
+    },
+    "partial": {
+      "category": "partial",
+      "description": "Partially visible screen",
+      "expected_outcome": "fallback",
+      "total": 1,
+      "detected": 1,
+      "fallback": 0,
+      "quality_failed": 0,
+      "errors": 0,
+      "detection_rate": 100.0,
+      "avg_confidence": 0.94,
+      "avg_tilt_deg": 5.4,
+      "avg_detect_ms": 11.9,
+      "avg_total_ms": 15.1,
+      "image_results": [
+        {
+          "image": "synthetic_partial.png",
+          "screen_detected": true,
+          "confidence": 0.94,
+          "tilt_angle_deg": 5.4,
+          "detect_ms": 11.9,
+          "total_ms": 15.1
+        }
+      ],
+      "source": "synthetic"
+    }
+  }
+}
