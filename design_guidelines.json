@@ -1,0 +1,113 @@
+{
+  "project_name": "ScreenSolve",
+  "theme": {
+    "mode": "dark-only",
+    "archetype": "Archetype 4 (Swiss & High-Contrast) + Archetype 2 (Performance Pro) Hybrid",
+    "description": "Minimal, Professional, Technical, Focused, Enterprise Ready mobile-first web app."
+  },
+  "colors": {
+    "background": "#0A0A0A",
+    "surface": "#111111",
+    "card": "#181818",
+    "text": {
+      "primary": "#F8F8F8",
+      "secondary": "#A1A1AA"
+    },
+    "accent": "#2563EB",
+    "status": {
+      "success": "#22C55E",
+      "error": "#EF4444"
+    },
+    "borders": "#27272A",
+    "overlay": "rgba(0, 0, 0, 0.6)"
+  },
+  "typography": {
+    "fontFamily": {
+      "heading": "Geist, sans-serif",
+      "body": "Geist, sans-serif",
+      "mono": "Geist Mono, monospace"
+    },
+    "rules": {
+      "headings": "Tight tracking (tracking-tight), never exceed text-4xl. Use font-medium to font-semibold.",
+      "body": "Clean, readable text-base with leading-relaxed.",
+      "answers": "Large and highly readable (text-2xl to text-3xl font-medium tracking-tight).",
+      "labels": "Uppercase, tracking-[0.2em], text-xs text-[#A1A1AA]."
+    }
+  },
+  "spacing_and_layout": {
+    "container": "max-w-md mx-auto min-h-screen relative overflow-x-hidden bg-[#0A0A0A] text-[#F8F8F8]",
+    "padding": "Generous spacing. p-6 to p-8 for standard containers. Elements need breathing room.",
+    "alignment": "Left-align for text and data, center-align for major isolated actions.",
+    "navigation": "No complex navigation, no sidebar, no chat windows. Bottom action area for thumb-friendly one-handed usage."
+  },
+  "surfaces_and_borders": {
+    "background": "Solid #0A0A0A, no gradients.",
+    "cards": "bg-[#181818] with 1px solid border-[#27272A]. Max border-radius: rounded-2xl.",
+    "bottom_sheet": "bg-[#181818] rounded-t-3xl border-t border-[#27272A] shadow-[0_-8px_32px_rgba(0,0,0,0.6)]."
+  },
+  "motion": {
+    "allowed": ["fade", "slide-up"],
+    "banned": ["haptic", "confetti", "particles", "bouncing", "springs"],
+    "rules": "transition-opacity duration-300 ease-out, transition-transform duration-300 ease-out. Absolutely NO physics-based spring animations."
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#2563EB] text-[#F8F8F8] h-14 rounded-2xl flex items-center justify-center font-medium w-full active:opacity-80 transition-opacity",
+      "secondary": "bg-[#111111] border border-[#27272A] text-[#F8F8F8] h-14 rounded-2xl flex items-center justify-center font-medium w-full active:opacity-80 transition-opacity",
+      "icon_button": "h-14 w-14 rounded-full bg-[#181818] border border-[#27272A] flex items-center justify-center text-[#F8F8F8] active:opacity-80 transition-opacity"
+    },
+    "camera_overlay": {
+      "container": "absolute inset-0 z-10 pointer-events-none flex flex-col",
+      "viewfinder": "flex-1 border-2 border-[#2563EB]/50 m-8 rounded-xl relative before:absolute before:inset-0 before:shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]"
+    }
+  },
+  "pages": {
+    "home_screen": {
+      "layout": "flex flex-col items-center justify-center min-h-screen p-8 text-center",
+      "elements": [
+        {"name": "Logo", "style": "text-4xl font-semibold tracking-tighter text-[#F8F8F8] mb-4"},
+        {"name": "Tagline", "style": "text-lg text-[#A1A1AA] max-w-[250px] mx-auto leading-snug mb-16"},
+        {"name": "Actions", "style": "w-full space-y-4 mt-auto"}
+      ]
+    },
+    "camera_screen": {
+      "layout": "fixed inset-0 bg-black flex flex-col max-w-md mx-auto",
+      "elements": [
+        {"name": "Video Feed", "style": "absolute inset-0 w-full h-full object-cover"},
+        {"name": "Overlay", "style": "Screen detection viewfinder as defined in components"},
+        {"name": "Controls", "style": "absolute bottom-0 w-full p-8 pb-12 flex justify-between items-end z-20 pointer-events-auto"}
+      ]
+    },
+    "results_screen": {
+      "layout": "fixed inset-0 z-50 flex items-end justify-center pointer-events-none max-w-md mx-auto",
+      "elements": [
+        {"name": "Sheet", "style": "w-full bg-[#181818] rounded-t-3xl border-t border-[#27272A] p-6 pb-10 pointer-events-auto transform translate-y-0 transition-transform duration-300 ease-out"},
+        {"name": "Answers List", "style": "space-y-4 mb-8 overflow-y-auto max-h-[50vh] scrollbar-hide"},
+        {"name": "Answer Item", "style": "text-3xl font-medium tracking-tight text-[#F8F8F8] break-words"},
+        {"name": "Actions", "style": "grid grid-cols-2 gap-4"}
+      ]
+    }
+  },
+  "icons": {
+    "library": "lucide-react",
+    "rules": "Use minimal, outline icons. Size 24px usually. Color matching text rules."
+  },
+  "media": {
+    "image_urls": [],
+    "rules": "Do not use placeholder images or illustrations. The app relies entirely on geometric structures, camera feed, and typography."
+  },
+  "accessibility_and_testing": {
+    "testing": "All interactive and key informational elements MUST include a data-testid attribute in kebab-case, role-based (e.g., data-testid='capture-button').",
+    "contrast": "Text over backgrounds meets APCA standards. Focus states must use ring-2 ring-[#2563EB] ring-offset-2 ring-offset-[#0A0A0A]."
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the JSON color variables using custom hex codes. Do not use generic tailwind grays.",
+    "Apply 'dark' class universally; this app is dark-mode only.",
+    "Implement the mobile layout wrapper strictly: max-w-md mx-auto. It must look and behave like a phone screen even on desktop viewports.",
+    "No horizontal scrolling allowed. Ensure overflow-x-hidden on the main container.",
+    "Camera must handle live preview seamlessly using HTML5 video/navigator.mediaDevices.",
+    "Use standard .js files for React components, not .tsx.",
+    "Shadcn components or custom Framer Motion divs used for bottom sheet must strictly use linear or ease-out transitions for slide-up. NO spring or bounce animations.",
+    "Result answers must automatically scroll into view when they appear."
+  ]
+}
