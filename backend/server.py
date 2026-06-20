@@ -1,12 +1,14 @@
 """ScreenSolve - FastAPI Backend"""
 import os
 import sys
+import re
+import json
 import uuid
 import time
 import logging
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 from difflib import SequenceMatcher
 from datetime import datetime, timezone
 
@@ -43,6 +45,7 @@ api_router = APIRouter(prefix="/api")
 MAX_FILE_SIZE_MB = int(os.environ.get("MAX_FILE_SIZE_MB", "10"))
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/jpg"}
 ENABLE_VERIFICATION = os.environ.get("ENABLE_VERIFICATION", "false").lower() == "true"
+LARGE_QUESTION_THRESHOLD = int(os.environ.get("LARGE_QUESTION_THRESHOLD", "5"))
 
 # Rate limiting (in-memory, per IP)
 _rate_store: dict = {}
@@ -82,32 +85,56 @@ async def resolve_answers(image_path: str, answer_a: str, answer_b: str) -> tupl
     return verified, True
 
 
-def parse_gpt_metadata(raw: str) -> tuple:
+def parse_gpt_metadata(raw: str) -> Tuple[bool, bool, int, str]:
     """
-    Parse CLASSIFY / UNCERTAIN header lines embedded in a GPT-5 response.
+    Parse compact JSON metadata from the first line of a GPT response.
 
-    GPT-5 is instructed to start every response with:
-        CLASSIFY: SIMPLE|COMPLEX
-        UNCERTAIN: YES|NO
+    GPT-5 is instructed to begin every response with:
+        {"c":"SIMPLE","u":false,"n":3}
+
+    Fields:
+        c  — "COMPLEX" | "SIMPLE"
+        u  — true | false  (uncertain)
+        n  — integer question count
 
     Returns:
-        (is_uncertain: bool, is_complex: bool, clean_answer: str)
+        (is_uncertain, is_complex, question_count, clean_answer)
+
+    This metadata is INTERNAL. It is never forwarded to end users.
     """
-    is_uncertain = False
-    is_complex = False
-    answer_lines = []
+    lines = raw.strip().split("\n")
+    meta: dict = {"c": "SIMPLE", "u": False, "n": 0}
+    answer_start = 0
 
-    for line in raw.split("\n"):
-        upper = line.strip().upper()
-        if upper.startswith("CLASSIFY:"):
-            is_complex = "COMPLEX" in upper
-        elif upper.startswith("UNCERTAIN:"):
-            is_uncertain = "YES" in upper
-        else:
-            answer_lines.append(line)
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            try:
+                meta = json.loads(stripped)
+                answer_start = i + 1
+                break
+            except json.JSONDecodeError:
+                # Fallback: regex-extract the JSON object
+                match = re.search(r"\{[^}]+\}", stripped)
+                if match:
+                    try:
+                        meta = json.loads(match.group())
+                        answer_start = i + 1
+                        break
+                    except json.JSONDecodeError:
+                        pass
 
-    clean = "\n".join(answer_lines).strip()
-    return is_uncertain, is_complex, clean
+    # Skip blank separator lines
+    while answer_start < len(lines) and not lines[answer_start].strip():
+        answer_start += 1
+
+    clean = "\n".join(lines[answer_start:]).strip()
+
+    is_complex = str(meta.get("c", "SIMPLE")).upper() == "COMPLEX"
+    is_uncertain = bool(meta.get("u", False))
+    question_count = int(meta.get("n", 0))
+
+    return is_uncertain, is_complex, question_count, clean
 
 
 def pick_verification_reason(
@@ -115,15 +142,17 @@ def pick_verification_reason(
     is_uncertain: bool,
     is_complex: bool,
     borderline: bool,
+    question_count: int,
 ) -> Optional[str]:
     """
-    Return the reason string if verification should run, else None.
+    Return the verification trigger reason, or None if no verification needed.
 
-    Priority order (matches product spec):
-      1. Explicit config (ENABLE_VERIFICATION=true)
-      2. GPT-5 reported uncertainty
-      3. Complex question type (puzzle / logic / data / math)
-      4. Borderline image quality
+    Priority order:
+      1. Explicit config  (ENABLE_VERIFICATION=true)
+      2. GPT-5 uncertainty flag
+      3. Complex question type  (puzzle / logic / data / math)
+      4. Large question set     (≥ LARGE_QUESTION_THRESHOLD, default 5)
+      5. Borderline image quality
     """
     if enable_verification_env:
         return "config"
@@ -131,6 +160,8 @@ def pick_verification_reason(
         return "gpt5_uncertainty"
     if is_complex:
         return "complex_question_type"
+    if question_count >= LARGE_QUESTION_THRESHOLD:
+        return "large_question_set"
     if borderline:
         return "borderline_quality"
     return None
@@ -186,23 +217,23 @@ async def run_analysis(file: UploadFile, explain: bool, request_id: str) -> dict
         # Step 1: GPT-5 primary analysis (always runs)
         raw_answer = await primary.analyze(tmp_path, explain)
 
-        # Step 2: Parse self-reported metadata (CLASSIFY / UNCERTAIN headers)
-        is_uncertain, is_complex, clean_answer = parse_gpt_metadata(raw_answer)
+        # Step 2: Parse self-reported JSON metadata (internal — never forwarded to users)
+        is_uncertain, is_complex, question_count, clean_answer = parse_gpt_metadata(raw_answer)
 
         logger.info(
             f"rid={request_id} uncertain={is_uncertain} "
-            f"complex={is_complex} borderline={borderline}"
+            f"complex={is_complex} qcount={question_count} borderline={borderline}"
         )
 
         # Step 3: Smart verification trigger
         verification_reason = pick_verification_reason(
-            ENABLE_VERIFICATION, is_uncertain, is_complex, borderline
+            ENABLE_VERIFICATION, is_uncertain, is_complex, borderline, question_count
         )
 
         if verification_reason:
             secondary = get_secondary_provider()
             raw_b = await secondary.analyze(tmp_path, explain)
-            _, _, clean_b = parse_gpt_metadata(raw_b)
+            _, _, _, clean_b = parse_gpt_metadata(raw_b)
             final_answer, _ = await resolve_answers(tmp_path, clean_answer, clean_b)
             verification_used = True
             logger.info(f"rid={request_id} verification triggered reason={verification_reason}")
@@ -221,7 +252,6 @@ async def run_analysis(file: UploadFile, explain: bool, request_id: str) -> dict
             "processing_time_ms": ms,
             "model_used": primary.model_name,
             "verification_used": verification_used,
-            "verification_reason": verification_reason,
             "explained": explain
         }
     finally:
@@ -256,10 +286,10 @@ async def analyze_image(
 
     logger.info(f"rid={request_id} endpoint=/analyze ip={client_ip}")
 
-    if not os.environ.get("EMERGENT_LLM_KEY"):
+    if not os.environ.get("EMERGENT_LLM_KEY") and not os.environ.get("OPENROUTER_API_KEY"):
         raise HTTPException(
             status_code=503,
-            detail="Vision AI not configured. Please set EMERGENT_LLM_KEY in environment."
+            detail="Vision AI not configured. Set EMERGENT_LLM_KEY or OPENROUTER_API_KEY."
         )
 
     return await run_analysis(file, explain, request_id)

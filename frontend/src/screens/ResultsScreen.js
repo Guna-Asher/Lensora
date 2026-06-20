@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Copy,
@@ -20,15 +20,54 @@ function dataURLtoBlob(dataURL) {
   return new Blob([arr], { type: mime });
 }
 
-function AnswerItem({ line, index }) {
+/**
+ * Group raw answer lines into renderable blocks.
+ * Consecutive ``` lines form a code block; everything else is a text line.
+ */
+function groupLines(lines) {
+  const blocks = [];
+  let inCode = false;
+  let codeLines = [];
+
+  for (const line of lines) {
+    if (line.trimStart().startsWith("```")) {
+      if (inCode) {
+        blocks.push({ type: "code", content: codeLines.join("\n") });
+        codeLines = [];
+        inCode = false;
+      } else {
+        inCode = true;
+      }
+    } else if (inCode) {
+      codeLines.push(line);
+    } else {
+      blocks.push({ type: "text", content: line });
+    }
+  }
+  if (inCode && codeLines.length) {
+    blocks.push({ type: "code", content: codeLines.join("\n") });
+  }
+  return blocks;
+}
+
+function AnswerBlock({ block, index }) {
+  const delay = `${index * 55}ms`;
+
+  if (block.type === "code") {
+    return (
+      <pre
+        className="font-mono text-sm text-[#A1A1AA] bg-[#111111] border border-[#27272A] rounded-xl px-4 py-3 overflow-x-auto answer-item whitespace-pre-wrap"
+        style={{ animationDelay: delay }}
+        data-testid="code-block"
+      >
+        {block.content}
+      </pre>
+    );
+  }
+
+  const line = block.content;
   const isExplanation =
-    line.trimStart().startsWith("→") ||
-    line.startsWith("   ") ||
-    line.startsWith("\t");
-
-  const isCode = line.includes("```");
-
-  const delay = `${index * 60}ms`;
+    line.trimStart().startsWith("→") || line.startsWith("   ");
 
   if (isExplanation) {
     return (
@@ -39,18 +78,6 @@ function AnswerItem({ line, index }) {
       >
         {line.trim()}
       </p>
-    );
-  }
-
-  if (isCode) {
-    return (
-      <code
-        className="block font-mono text-sm text-[#A1A1AA] bg-[#111111] border border-[#27272A] rounded-lg px-3 py-2 answer-item"
-        style={{ animationDelay: delay }}
-        data-testid="code-line"
-      >
-        {line}
-      </code>
     );
   }
 
@@ -69,33 +96,54 @@ export default function ResultsScreen() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const answersRef = useRef(null);
+  const sheetRef = useRef(null);
+  const touchStartY = useRef(null);
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isExplaining, setIsExplaining] = useState(false);
   const [explanations, setExplanations] = useState(null);
   const [explainError, setExplainError] = useState(null);
+  const [hasOverflow, setHasOverflow] = useState(false);
 
   const result = state?.result;
   const imageDataUrl = state?.imageDataUrl;
 
   useEffect(() => {
-    if (!result) {
-      navigate("/", { replace: true });
-      return;
-    }
+    if (!result) { navigate("/", { replace: true }); return; }
     const t1 = setTimeout(() => setSheetVisible(true), 50);
     const t2 = setTimeout(() => {
       answersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 400);
+    }, 450);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [result, navigate]);
 
+  // Detect scroll overflow to show fade indicator
+  useEffect(() => {
+    const el = answersRef.current?.closest(".overflow-y-auto");
+    if (!el) return;
+    const check = () => setHasOverflow(el.scrollHeight > el.clientHeight + 10);
+    check();
+    el.addEventListener("scroll", check);
+    return () => el.removeEventListener("scroll", check);
+  }, [sheetVisible]);
+
+  // Swipe-down to dismiss
+  const onTouchStart = useCallback((e) => {
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const onTouchEnd = useCallback((e) => {
+    if (touchStartY.current == null) return;
+    const delta = e.changedTouches[0].clientY - touchStartY.current;
+    if (delta > 80) navigate("/");
+    touchStartY.current = null;
+  }, [navigate]);
+
   const copyAll = async () => {
     const text = explanations || result?.answers || "";
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
+    try { await navigator.clipboard.writeText(text); }
+    catch {
       const ta = document.createElement("textarea");
       ta.value = text;
       document.body.appendChild(ta);
@@ -118,12 +166,9 @@ export default function ResultsScreen() {
     formData.append("explain", "true");
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/analyze`, {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(`${BACKEND_URL}/api/analyze`, { method: "POST", body: formData });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed to get explanations");
+      if (!res.ok) throw new Error(data.detail || "Failed to load explanations");
       setExplanations(data.answers);
     } catch (err) {
       setExplainError(err.message || "Could not load explanations.");
@@ -133,16 +178,14 @@ export default function ResultsScreen() {
   };
 
   const displayText = explanations || result?.answers || "";
-  const answerLines = displayText.split("\n").filter((l) => l.trim());
+  const rawLines = displayText.split("\n").filter((l) => l.trim());
+  const blocks = groupLines(rawLines);
 
   if (!result) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-[#0A0A0A] flex flex-col"
-      data-testid="results-screen"
-    >
-      {/* Background image (dimmed) */}
+    <div className="fixed inset-0 bg-[#0A0A0A] flex flex-col" data-testid="results-screen">
+      {/* Background image */}
       {imageDataUrl && (
         <div className="absolute inset-0">
           <img
@@ -157,7 +200,10 @@ export default function ResultsScreen() {
 
       {/* Bottom Sheet */}
       <div
+        ref={sheetRef}
         data-testid="results-bottom-sheet"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
         className={`
           absolute bottom-0 left-0 right-0 z-10
           bg-[#181818] rounded-t-3xl border-t border-[#27272A]
@@ -168,12 +214,12 @@ export default function ResultsScreen() {
         `}
       >
         {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-2 shrink-0">
+        <div className="flex justify-center pt-3 pb-2 shrink-0 cursor-grab active:cursor-grabbing">
           <div className="w-10 h-1 bg-[#27272A] rounded-full" />
         </div>
 
         {/* Header */}
-        <div className="px-6 pb-4 flex items-start justify-between shrink-0">
+        <div className="px-6 pb-3 flex items-start justify-between shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
               {result.screen_detected ? (
@@ -191,7 +237,6 @@ export default function ResultsScreen() {
               {result.verification_used && " · Verified"}
             </p>
           </div>
-
           {explanations && (
             <span className="text-xs text-[#2563EB] bg-[#2563EB]/10 px-2 py-1 rounded-full">
               Explained
@@ -200,35 +245,34 @@ export default function ResultsScreen() {
         </div>
 
         {/* Answers list */}
-        <div
-          ref={answersRef}
-          className="flex-1 overflow-y-auto px-6 pb-4 space-y-2 scrollbar-hide"
-          data-testid="answers-container"
-        >
-          {answerLines.length === 0 ? (
-            <p
-              className="text-[#A1A1AA] text-center py-10"
-              data-testid="no-answers"
-            >
-              No answers could be extracted.
-            </p>
-          ) : (
-            answerLines.map((line, i) => (
-              <AnswerItem key={i} line={line} index={i} />
-            ))
-          )}
+        <div className="relative flex-1 overflow-hidden">
+          <div
+            ref={answersRef}
+            className="h-full overflow-y-auto px-6 pb-4 space-y-2 scrollbar-hide"
+            data-testid="answers-container"
+          >
+            {blocks.length === 0 ? (
+              <p className="text-[#A1A1AA] text-center py-10" data-testid="no-answers">
+                No answers could be extracted.
+              </p>
+            ) : (
+              blocks.map((block, i) => <AnswerBlock key={i} block={block} index={i} />)
+            )}
 
-          {explainError && (
-            <p
-              className="text-[#EF4444] text-sm text-center py-2"
-              data-testid="explain-error"
-            >
-              {explainError}
-            </p>
+            {explainError && (
+              <p className="text-[#EF4444] text-sm text-center py-2" data-testid="explain-error">
+                {explainError}
+              </p>
+            )}
+          </div>
+
+          {/* Scroll overflow fade */}
+          {hasOverflow && (
+            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 scroll-fade-bottom" />
           )}
         </div>
 
-        {/* Action buttons */}
+        {/* Actions */}
         <div
           className="px-6 pb-10 pt-3 space-y-3 border-t border-[#27272A] shrink-0"
           data-testid="result-actions"
@@ -239,11 +283,7 @@ export default function ResultsScreen() {
               onClick={copyAll}
               className="h-12 bg-[#111111] border border-[#27272A] text-[#F8F8F8] rounded-xl font-medium flex items-center justify-center gap-2 active:opacity-70 transition-opacity duration-150"
             >
-              {copied ? (
-                <Check size={16} className="text-[#22C55E]" />
-              ) : (
-                <Copy size={16} />
-              )}
+              {copied ? <Check size={16} className="text-[#22C55E]" /> : <Copy size={16} />}
               <span className={copied ? "text-[#22C55E]" : ""}>
                 {copied ? "Copied!" : "Copy All"}
               </span>

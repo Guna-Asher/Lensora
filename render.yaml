@@ -1,0 +1,68 @@
+# ScreenSolve — Render.com Deployment Blueprint
+# Deploy with: https://dashboard.render.com/blueprints
+# Or link this file in your Render dashboard.
+#
+# Services:
+#   screensolve-api   — Python FastAPI backend (Web Service)
+#   screensolve-web   — React frontend (Static Site)
+
+services:
+  # ─────────────────────────────────────────────────────────
+  # Backend API — FastAPI + OpenCV
+  # ─────────────────────────────────────────────────────────
+  - type: web
+    name: screensolve-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Set this in Render dashboard (never commit real keys)
+      - key: EMERGENT_LLM_KEY
+        sync: false
+      # Optional: set to use OpenRouter instead of Emergent
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: VISION_PROVIDER
+        value: emergent
+      - key: PRIMARY_PROVIDER
+        value: openai
+      - key: PRIMARY_MODEL
+        value: gpt-5
+      - key: SECONDARY_PROVIDER
+        value: gemini
+      - key: SECONDARY_MODEL
+        value: gemini-2.5-pro
+      - key: ENABLE_VERIFICATION
+        value: "false"
+      - key: LARGE_QUESTION_THRESHOLD
+        value: "5"
+      - key: MAX_FILE_SIZE_MB
+        value: "10"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: DB_NAME
+        value: screensolve
+
+  # ─────────────────────────────────────────────────────────
+  # Frontend — React Static Site
+  # ─────────────────────────────────────────────────────────
+  - type: web
+    name: screensolve-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: yarn install && yarn build
+    staticPublishPath: build
+    autoDeploy: true
+    envVars:
+      # Point to your deployed API URL, e.g. https://screensolve-api.onrender.com
+      - key: REACT_APP_BACKEND_URL
+        sync: false
+    routes:
+      # SPA fallback — all paths serve index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html

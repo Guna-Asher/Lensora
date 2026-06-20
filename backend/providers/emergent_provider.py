@@ -19,18 +19,18 @@ logger = logging.getLogger("screensolve.providers")
 
 ANSWERS_PROMPT = """You are ScreenSolve, a precision screen answer extractor.
 
-BEGIN your response with EXACTLY these two header lines — no exceptions:
-CLASSIFY: SIMPLE
-UNCERTAIN: NO
+RESPONSE FORMAT — strictly required:
+Line 1: compact JSON, no spaces: {"c":"SIMPLE","u":false,"n":0}
 
-Change CLASSIFY to COMPLEX if the screen contains:
-  puzzle, logical reasoning, data interpretation, complex mathematics,
-  probability, combinatorics, graph analysis, or multi-step inference.
+  c = "COMPLEX" if content contains: puzzle, logical reasoning, data
+      interpretation, statistics, calculus, probability, combinatorics,
+      or multi-step graph/spatial reasoning. Otherwise "SIMPLE".
+  u = true only if screen text is unreadable/cut-off or you genuinely
+      cannot determine an answer. false otherwise.
+  n = integer count of distinct questions/problems visible.
 
-Change UNCERTAIN to YES if:
-  any part of the screen is blurry/cut off, OR you cannot confidently read an answer.
-
-After the two header lines, provide ONLY the direct answers:
+Line 2: blank
+Lines 3+: ONLY direct answers:
 - MCQ:        Q1 B) Answer
 - Numerical:  Q2 42
 - Fill-blank:  Q3 Paris
@@ -38,33 +38,32 @@ After the two header lines, provide ONLY the direct answers:
 - SQL:        Q5\n```sql\n<query only>\n```
 - General:    1-2 line summary only
 
-STRICT RULES — never break these:
+STRICT RULES — never break:
 - NEVER explain reasoning or show chain-of-thought
 - NEVER show confidence scores
 - NEVER add caveats, disclaimers, or extra commentary
-- Each answer on its own line, numbered Q1 Q2 Q3...
+- Number each answer Q1 Q2 Q3... on separate lines
 - Be extremely concise"""
 
 EXPLAIN_PROMPT = """You are ScreenSolve, a screen content analyzer.
 
-BEGIN your response with EXACTLY these two header lines:
-CLASSIFY: SIMPLE
-UNCERTAIN: NO
+RESPONSE FORMAT — strictly required:
+Line 1: compact JSON, no spaces: {"c":"SIMPLE","u":false,"n":0}
+  c = "COMPLEX" for puzzle/logic/data/math/probability. Otherwise "SIMPLE".
+  u = true if any screen text is unclear or answer uncertain.
+  n = count of distinct questions visible.
 
-Change CLASSIFY to COMPLEX for: puzzle, logical reasoning, data interpretation,
-complex math, probability, combinatorics, or graph analysis.
-Change UNCERTAIN to YES if any part of the screen is unclear or you are unsure.
-
-After the two header lines, provide answers with brief explanations:
+Line 2: blank
+Lines 3+: answers with brief explanations:
 Q1 B) Answer
    → [one-sentence explanation]
 Q2 42
    → [one-sentence explanation]
 
 Rules:
-- Always lead with the answer first
-- Explanation is exactly one sentence, prefixed with →
-- Number starting from Q1"""
+- Always lead with the answer
+- One sentence per explanation, prefixed with →
+- Number from Q1"""
 
 VERIFY_PROMPT = """You are ScreenSolve, a verification expert.
 Two AI models analyzed the same screen image and produced different answers.
@@ -129,23 +128,35 @@ _primary: Optional[EmergentProvider] = None
 _secondary: Optional[EmergentProvider] = None
 
 
-def get_primary_provider() -> EmergentProvider:
+def _make_provider(provider_env: str, model_env: str, key_env: str) -> "VisionProvider":
+    """Factory: returns the correct VisionProvider based on VISION_PROVIDER env var."""
+    vision_backend = os.environ.get("VISION_PROVIDER", "emergent").lower()
+    api_key = os.environ.get(key_env, "")
+    model = os.environ.get(model_env, "")
+
+    if vision_backend == "openrouter":
+        from providers.openrouter_provider import OpenRouterProvider
+        return OpenRouterProvider(
+            api_key=os.environ.get("OPENROUTER_API_KEY", ""),
+            model=model or "openai/gpt-4o",
+        )
+    # Default: emergent
+    return EmergentProvider(
+        api_key=api_key,
+        provider=os.environ.get(provider_env, "openai"),
+        model=model or "gpt-5",
+    )
+
+
+def get_primary_provider() -> "VisionProvider":
     global _primary
     if _primary is None:
-        _primary = EmergentProvider(
-            api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
-            provider=os.environ.get("PRIMARY_PROVIDER", "openai"),
-            model=os.environ.get("PRIMARY_MODEL", "gpt-5"),
-        )
+        _primary = _make_provider("PRIMARY_PROVIDER", "PRIMARY_MODEL", "EMERGENT_LLM_KEY")
     return _primary
 
 
-def get_secondary_provider() -> EmergentProvider:
+def get_secondary_provider() -> "VisionProvider":
     global _secondary
     if _secondary is None:
-        _secondary = EmergentProvider(
-            api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
-            provider=os.environ.get("SECONDARY_PROVIDER", "gemini"),
-            model=os.environ.get("SECONDARY_MODEL", "gemini-2.5-pro"),
-        )
+        _secondary = _make_provider("SECONDARY_PROVIDER", "SECONDARY_MODEL", "EMERGENT_LLM_KEY")
     return _secondary

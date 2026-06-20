@@ -59,3 +59,18 @@ body {
 .answer-item {
   animation: slideUpFade 0.3s ease-out both;
 }
+
+/* Scanner corner bracket pulse */
+@keyframes scannerPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+.scanner-corner {
+  animation: scannerPulse 2s ease-in-out infinite;
+}
+
+/* Scroll fade overlay at the bottom of the answers list */
+.scroll-fade-bottom {
+  background: linear-gradient(to bottom, transparent 0%, #181818 100%);
+}
