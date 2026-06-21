@@ -12,10 +12,12 @@ from typing import Optional, Tuple
 from difflib import SequenceMatcher
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, APIRouter, File, Form, UploadFile, HTTPException, Request
+from fastapi import FastAPI, APIRouter, File, Form, UploadFile, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+import jwt
 import numpy as np
 import cv2
 
@@ -52,6 +54,38 @@ LARGE_QUESTION_THRESHOLD = int(os.environ.get("LARGE_QUESTION_THRESHOLD", "5"))
 _rate_store: dict = {}
 RATE_MAX = 30
 RATE_WINDOW = 60
+
+# Supabase JWT auth
+_http_bearer = HTTPBearer(auto_error=False)
+SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
+
+
+async def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(_http_bearer)):
+    """
+    FastAPI dependency: verifies the Supabase-issued JWT on every protected endpoint.
+
+    - If SUPABASE_JWT_SECRET is not configured → 503 (auth not set up server-side).
+    - If no Authorization header → 401.
+    - If token is invalid/expired → 401.
+    """
+    if not SUPABASE_JWT_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication is not configured. Set SUPABASE_JWT_SECRET."
+        )
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Authorization header required.")
+    try:
+        jwt.decode(
+            credentials.credentials,
+            SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired.")
+    except jwt.InvalidTokenError as exc:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {exc}")
 
 
 def check_rate_limit(client_ip: str) -> bool:
@@ -307,7 +341,8 @@ async def health():
 async def analyze_image(
     request: Request,
     file: UploadFile = File(...),
-    explain: bool = Form(default=False)
+    explain: bool = Form(default=False),
+    _auth=Depends(verify_jwt),
 ):
     request_id = str(uuid.uuid4())[:8]
     client_ip = get_client_ip(request)
@@ -330,7 +365,8 @@ async def analyze_image(
 async def upload_image(
     request: Request,
     file: UploadFile = File(...),
-    explain: bool = Form(default=False)
+    explain: bool = Form(default=False),
+    _auth=Depends(verify_jwt),
 ):
     """Upload endpoint — alias for /analyze for file gallery uploads."""
     return await analyze_image(request, file, explain)
