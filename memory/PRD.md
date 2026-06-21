@@ -99,11 +99,18 @@ LARGE_QUESTION_THRESHOLD=5
 MAX_FILE_SIZE_MB=10
 CORS_ORIGINS=*
 APP_URL=https://screensolve.app
+SUPABASE_JWT_SECRET=         # Required for backend JWT verification
+```
+
+Frontend (`.env`):
+```
+REACT_APP_SUPABASE_URL=      # Required for Supabase auth
+REACT_APP_SUPABASE_ANON_KEY= # Required for Supabase auth
 ```
 
 ---
 
-## What's Been Implemented (2026-06-20 — v1.2)
+## What's Been Implemented (2026-06-21 — v1.3)
 
 ### Backend
 - [x] FastAPI server with /api/health, /api/analyze, /api/upload
@@ -133,7 +140,22 @@ APP_URL=https://screensolve.app
 - [x] Mobile-first max-w-md layout
 - [x] Copy All / Explain / Retake / Back to Home actions
 
-### Infrastructure
+### Authentication (v1.3 — Supabase Thin Layer)
+- [x] `supabaseClient.js` — singleton, exports null when env vars missing
+- [x] `fetchInterceptor.js` — patches window.fetch to inject JWT on backend calls
+- [x] `AuthContext.js` — session state, onAuthStateChange, signOut
+- [x] `ProtectedRoute.js` — redirects unauthenticated users to /login
+- [x] `LoginScreen` — email/password + Google OAuth + forgot-password link
+- [x] `RegisterScreen` — email/password sign-up
+- [x] `ForgotPasswordScreen` — sends Supabase reset email
+- [x] `ResetPasswordScreen` — completes password-reset flow
+- [x] `App.js` updated — AuthProvider wraps all routes; auth routes public; app routes protected
+- [x] `server.py` JWT middleware — `verify_jwt` dependency via PyJWT + SUPABASE_JWT_SECRET
+- [x] `/api/analyze` and `/api/upload` protected; `/api/health` remains public
+- [x] Option B enforced — when unconfigured, error shown; no silent bypass
+- [x] Placeholder env vars added: `SUPABASE_JWT_SECRET` (backend), `REACT_APP_SUPABASE_URL`, `REACT_APP_SUPABASE_ANON_KEY` (frontend)
+
+
 - [x] Backend Dockerfile + Frontend Dockerfile
 - [x] docker-compose.yml (OpenRouter-only)
 - [x] render.yaml (Render.com deployment blueprint)
@@ -144,13 +166,12 @@ APP_URL=https://screensolve.app
 ## Prioritized Backlog
 
 ### P0 (Blocking / Critical)
-- [ ] End-to-end testing with real OPENROUTER_API_KEY
+- [ ] End-to-end testing with real OPENROUTER_API_KEY + real Supabase credentials
 
 ### P1 (Next Phase)
-- [ ] Improve screen detection accuracy (OpenCV logic)
-- [ ] Improve perspective correction accuracy
-- [ ] Finalize mobile UX improvements
-- [ ] Error boundary component in React
+- [ ] Google OAuth configuration in Supabase dashboard
+- [ ] Finalize Render deployment & OpenRouter reliability checks
+- [ ] Logout button / user indicator in HomeScreen (currently no UI affordance)
 
 ### P2 (Future)
 - [ ] Benchmarking framework (deferred by user)
