@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, Upload, Scan } from "lucide-react";
+import { Camera, Upload, Scan, LogOut } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -17,6 +18,12 @@ export default function HomeScreen() {
   const fileInputRef = useRef(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState(null);
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login", { replace: true });
+  };
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -50,6 +57,29 @@ export default function HomeScreen() {
       className="flex flex-col min-h-screen p-8 bg-[#0A0A0A]"
       data-testid="home-screen"
     >
+      {/* User bar */}
+      {user && (
+        <div
+          data-testid="user-bar"
+          className="flex items-center justify-between mb-2"
+        >
+          <span
+            data-testid="user-email"
+            className="text-xs text-[#52525B] truncate max-w-[200px]"
+          >
+            {user.email}
+          </span>
+          <button
+            data-testid="sign-out-button"
+            onClick={handleSignOut}
+            className="flex items-center gap-1.5 text-xs text-[#52525B] hover:text-[#F8F8F8] transition-colors px-2 py-1 rounded-lg hover:bg-[#181818]"
+            aria-label="Sign out"
+          >
+            <LogOut size={13} />
+            Sign out
+          </button>
+        </div>
+      )}
       {/* Hero section */}
       <div className="flex-1 flex flex-col items-center justify-center text-center">
         <div className="mb-6 w-16 h-16 rounded-2xl bg-[#181818] border border-[#27272A] flex items-center justify-center">
