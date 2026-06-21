@@ -12,13 +12,16 @@ services:
     environment:
       - CORS_ORIGINS=http://localhost:3000,http://localhost:80
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - PRIMARY_MODEL=${PRIMARY_MODEL:-openai/gpt-4o}
+      - OPENROUTER_BASE_URL=${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      - VISION_PROVIDER=${VISION_PROVIDER:-openrouter}
+      - PRIMARY_MODEL=${PRIMARY_MODEL:-openai/gpt-5}
       - SECONDARY_MODEL=${SECONDARY_MODEL:-google/gemini-2.5-pro}
       - ENABLE_VERIFICATION=${ENABLE_VERIFICATION:-false}
       - LARGE_QUESTION_THRESHOLD=${LARGE_QUESTION_THRESHOLD:-5}
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-10}
       - MONGO_URL=${MONGO_URL:-mongodb://mongo:27017}
       - DB_NAME=${DB_NAME:-screensolve}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
     depends_on:
       - mongo
     healthcheck:

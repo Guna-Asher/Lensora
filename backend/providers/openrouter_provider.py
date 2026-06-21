@@ -167,7 +167,17 @@ _secondary: Optional[OpenRouterProvider] = None
 
 
 def _make_provider(model_env: str, default_model: str) -> OpenRouterProvider:
-    """Create an OpenRouterProvider from environment variables."""
+    """Create a provider from environment variables.
+
+    VISION_PROVIDER selects the active backend (currently only 'openrouter').
+    Future values: 'openai', 'gemini', 'anthropic', 'self-hosted'.
+    """
+    provider_name = os.environ.get("VISION_PROVIDER", "openrouter").lower()
+    if provider_name != "openrouter":
+        raise RuntimeError(
+            f"VISION_PROVIDER='{provider_name}' is not yet implemented. "
+            "Supported: openrouter"
+        )
     api_key = os.environ.get("OPENROUTER_API_KEY", "")
     model = os.environ.get(model_env, default_model)
     return OpenRouterProvider(api_key=api_key, model=model)
@@ -176,7 +186,7 @@ def _make_provider(model_env: str, default_model: str) -> OpenRouterProvider:
 def get_primary_provider() -> OpenRouterProvider:
     global _primary
     if _primary is None:
-        _primary = _make_provider("PRIMARY_MODEL", "openai/gpt-4o")
+        _primary = _make_provider("PRIMARY_MODEL", "openai/gpt-5")
     return _primary
 
 

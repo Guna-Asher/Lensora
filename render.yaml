@@ -26,8 +26,10 @@ services:
       # Optional: override OpenRouter base URL (for proxies / self-hosting)
       - key: OPENROUTER_BASE_URL
         value: https://openrouter.ai/api/v1
+      - key: VISION_PROVIDER
+        value: openrouter
       - key: PRIMARY_MODEL
-        value: openai/gpt-4o
+        value: openai/gpt-5
       - key: SECONDARY_MODEL
         value: google/gemini-2.5-pro
       - key: ENABLE_VERIFICATION
@@ -40,6 +42,8 @@ services:
         value: "*"
       - key: DB_NAME
         value: screensolve
+      - key: SUPABASE_JWT_SECRET
+        sync: false
 
   # ─────────────────────────────────────────────────────────
   # Frontend — React Static Site
@@ -54,6 +58,10 @@ services:
     envVars:
       # Point to your deployed API URL, e.g. https://screensolve-api.onrender.com
       - key: REACT_APP_BACKEND_URL
+        sync: false
+      - key: REACT_APP_SUPABASE_URL
+        sync: false
+      - key: REACT_APP_SUPABASE_ANON_KEY
         sync: false
     routes:
       # SPA fallback — all paths serve index.html

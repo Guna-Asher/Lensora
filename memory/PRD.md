@@ -89,21 +89,23 @@ VisionProvider (abstract)
 
 ## Environment Variables
 
+### Backend (`backend/.env`)
 ```
 OPENROUTER_API_KEY=          # Required for analysis
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-PRIMARY_MODEL=openai/gpt-4o
+VISION_PROVIDER=openrouter   # Active provider (openrouter | future: openai, gemini, anthropic, self-hosted)
+PRIMARY_MODEL=openai/gpt-5
 SECONDARY_MODEL=google/gemini-2.5-pro
 ENABLE_VERIFICATION=false
 LARGE_QUESTION_THRESHOLD=5
 MAX_FILE_SIZE_MB=10
 CORS_ORIGINS=*
-APP_URL=https://screensolve.app
 SUPABASE_JWT_SECRET=         # Required for backend JWT verification
 ```
 
-Frontend (`.env`):
+### Frontend (`frontend/.env`)
 ```
+REACT_APP_BACKEND_URL=       # Backend URL
 REACT_APP_SUPABASE_URL=      # Required for Supabase auth
 REACT_APP_SUPABASE_ANON_KEY= # Required for Supabase auth
 ```
