@@ -47,13 +47,19 @@ VisionProvider (abstract)
 
 ## Core Requirements
 
-### Screen Detection Pipeline
-1. Grayscale + Gaussian blur
-2. Canny edge detection (multi-threshold: (50,150), (30,100), (80,200))
-3. Contour analysis (find largest quadrilateral, 8%-95% image area)
-4. Shape validation (aspect ratio 1.05:1–3.2:1 + convexity ≥ 0.82)
-5. Perspective transform (flatten/undistort)
-6. Falls back to full image if no screen detected (screenshot mode)
+### Screen Detection Pipeline (v1.2 — two-stage)
+1. **Two-Stage Pipeline** — detect on downscaled copy (≤1500px), warp on original full-res
+2. **CLAHE preprocessing** — local contrast normalization (dark bezels, uneven lighting)
+3. **Multi-strategy edge detection:**
+   - Strategy A: morphological closing + CLAHE + multi-threshold Canny (50,150 / 30,100 / 80,200 / 20,80)
+   - Strategy B: CLAHE + thin Gaussian + Canny (thin bezels)
+   - Strategy C: adaptive threshold (dark bezels, black-on-black scenarios)
+4. **Robust quad extraction** — multi-epsilon (0.01–0.06), convex hull fallback, 4-extreme-corners for near-quads
+5. **Shape validation** — aspect ratio 1.05:1–3.2:1, convexity ≥ 0.82 (tuning deferred pending test-suite results)
+6. **Corner sub-pixel refinement** (cornerSubPix) before perspective warp
+7. **Angle estimation** — reject ≥60° with retake prompt; 50-60° returns caution flag
+8. **Timing metrics** (internal only): detection_ms, warp_ms, total_ms
+9. Falls back to full image if no screen detected (screenshot mode)
 
 ### Image Quality Validation
 - Minimum resolution: 40,000 pixels
