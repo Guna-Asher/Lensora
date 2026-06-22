@@ -1,4 +1,4 @@
-# ScreenSolve Frontend Dockerfile
+# Lensora Frontend Dockerfile
 FROM node:20-alpine AS builder
 
 WORKDIR /app

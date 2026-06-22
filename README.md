@@ -1,8 +1,8 @@
-# ScreenSolve
+# Lensora
 
 > **The fastest way to get answers from a screen.**
 
-ScreenSolve is a production-ready, self-hostable platform that provides highly accurate answers from photos and screenshots of laptop screens, desktop monitors, phones, tablets, and digital screenshots.
+Lensora is a production-ready, self-hostable platform that provides highly accurate answers from photos and screenshots of laptop screens, desktop monitors, phones, tablets, and digital screenshots.
 
 Zero vendor lock-in. No OCR. No LangChain. Pure Vision AI via OpenRouter.
 
@@ -13,7 +13,8 @@ Zero vendor lock-in. No OCR. No LangChain. Pure Vision AI via OpenRouter.
 ```bash
 # 1. Clone and configure
 cp .env.example backend/.env
-# Edit backend/.env → set OPENROUTER_API_KEY
+# Edit backend/.env → set OPENROUTER_API_KEY, SUPABASE_JWT_SECRET
+# Edit frontend/.env → set REACT_APP_SUPABASE_URL, REACT_APP_SUPABASE_ANON_KEY
 
 # 2. Backend
 cd backend
@@ -35,20 +36,21 @@ docker compose up -d
 
 ```
 Browser / Mobile
-  HomeScreen → CameraScreen → ResultsScreen
+  LoginScreen → HomeScreen → CameraScreen → ResultsScreen
                     │
             POST /api/analyze
                     │
          FastAPI Backend (port 8001)
-          1. MIME + Size Validation
-          2. Screen Detection (OpenCV)
-          3. Auto-Crop + Perspective Correction
-          4. Image Quality Validation
-          5. VisionProvider.analyze()
+          1. Supabase JWT Verification
+          2. MIME + Size Validation
+          3. Screen Detection (OpenCV)
+          4. Auto-Crop + Perspective Correction
+          5. Image Quality Validation
+          6. VisionProvider.analyze()
                     │
          VisionProvider Layer
-          OpenRouterProvider ──► primary model  (e.g. openai/gpt-4o)
-                             └─► secondary model (e.g. google/gemini-2.5-pro)
+          OpenRouterProvider ──► primary model  (openai/gpt-5)
+                             └─► secondary model (google/gemini-2.5-pro)
                                   └─ triggered by smart verification logic
 ```
 
@@ -59,7 +61,7 @@ Browser / Mobile
 ```
 /app/
 ├── backend/
-│   ├── server.py                       # FastAPI app + routes + smart verification
+│   ├── server.py                       # FastAPI app + routes + JWT middleware
 │   ├── providers/
 │   │   ├── vision_provider.py          # Abstract base class
 │   │   └── openrouter_provider.py      # OpenRouter REST implementation (pure httpx)
@@ -69,10 +71,20 @@ Browser / Mobile
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── frontend/
-│   ├── src/screens/
-│   │   ├── HomeScreen.js               # Landing (Capture + Upload)
-│   │   ├── CameraScreen.js             # Live camera + viewfinder overlay
-│   │   └── ResultsScreen.js            # Bottom-sheet answers
+│   ├── src/
+│   │   ├── screens/
+│   │   │   ├── HomeScreen.js           # Landing (Capture + Upload)
+│   │   │   ├── CameraScreen.js         # Live camera + viewfinder overlay
+│   │   │   ├── ResultsScreen.js        # Bottom-sheet answers
+│   │   │   ├── LoginScreen.js          # Email/password sign-in
+│   │   │   ├── RegisterScreen.js       # Sign-up
+│   │   │   ├── ForgotPasswordScreen.js # Password reset request
+│   │   │   └── ResetPasswordScreen.js  # Password reset completion
+│   │   ├── context/AuthContext.js      # Supabase session state
+│   │   ├── components/ProtectedRoute.js
+│   │   └── lib/
+│   │       ├── supabaseClient.js       # Supabase singleton
+│   │       └── fetchInterceptor.js     # JWT injection on API calls
 │   ├── Dockerfile
 │   └── tailwind.config.js
 ├── docker-compose.yml
@@ -88,13 +100,13 @@ Browser / Mobile
 ```json
 {
   "status": "healthy",
-  "service": "ScreenSolve API",
+  "service": "Lensora API",
   "version": "1.0.0",
   "verification_enabled": false
 }
 ```
 
-### `POST /api/analyze`
+### `POST /api/analyze` *(requires JWT)*
 **Request:** `multipart/form-data`
 - `file`: JPEG / PNG / WEBP image (required)
 - `explain`: boolean (optional, default: `false`)
@@ -107,7 +119,7 @@ Browser / Mobile
   "screen_detected": true,
   "confidence": 0.90,
   "processing_time_ms": 1842,
-  "model_used": "openai/gpt-4o",
+  "model_used": "openai/gpt-5",
   "verification_used": false,
   "explained": false
 }
@@ -121,24 +133,36 @@ Browser / Mobile
 }
 ```
 
-### `POST /api/upload`
+### `POST /api/upload` *(requires JWT)*
 Identical to `/api/analyze`. Alias for file gallery uploads.
 
 ---
 
 ## Environment Variables
 
+### Backend
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OPENROUTER_API_KEY` | *(required)* | OpenRouter API key — get from [openrouter.ai/keys](https://openrouter.ai/keys) |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | Override for proxies or self-hosting |
-| `PRIMARY_MODEL` | `openai/gpt-4o` | Primary vision model (full OpenRouter model ID) |
+| `VISION_PROVIDER` | `openrouter` | Active provider (`openrouter` \| future: `openai`, `gemini`, `anthropic`) |
+| `PRIMARY_MODEL` | `openai/gpt-5` | Primary vision model (full OpenRouter model ID) |
 | `SECONDARY_MODEL` | `google/gemini-2.5-pro` | Secondary model for verification |
 | `ENABLE_VERIFICATION` | `false` | Force dual-model verification on every request |
 | `LARGE_QUESTION_THRESHOLD` | `5` | Question count that auto-triggers verification |
 | `MAX_FILE_SIZE_MB` | `10` | Upload size limit |
 | `CORS_ORIGINS` | `*` | Allowed CORS origins |
-| `APP_URL` | `https://screensolve.app` | Used in OpenRouter `HTTP-Referer` header |
+| `APP_URL` | `https://lensora.app` | Used in OpenRouter `HTTP-Referer` header |
+| `SUPABASE_JWT_SECRET` | *(required for auth)* | JWT secret from Supabase Project Settings → API |
+
+### Frontend
+
+| Variable | Description |
+|----------|-------------|
+| `REACT_APP_BACKEND_URL` | Backend URL |
+| `REACT_APP_SUPABASE_URL` | Supabase project URL |
+| `REACT_APP_SUPABASE_ANON_KEY` | Supabase anon key |
 
 ---
 
@@ -157,7 +181,7 @@ class VisionProvider(ABC):
 - 60s timeout, temperature 0.1, max_tokens 2048
 - Supports any vision-capable model on OpenRouter
 
-To add a new provider: extend `VisionProvider`, implement `analyze()` / `verify()`, and update the factory in `openrouter_provider.py`.
+To add a new provider: extend `VisionProvider`, implement `analyze()` / `verify()`, update `VISION_PROVIDER` factory in `openrouter_provider.py`.
 
 ---
 
@@ -172,8 +196,6 @@ Dual-model verification auto-triggers when:
 | Complexity | Primary model JSON metadata: `"c": "COMPLEX"` |
 | Volume | Question count ≥ `LARGE_QUESTION_THRESHOLD` (default 5) |
 | Quality | Borderline image quality detected by OpenCV |
-
-Verification flow: primary answer + secondary answer → `SequenceMatcher(ratio >= 0.70)` agree → use primary. Differ → re-run primary to adjudicate.
 
 ---
 
@@ -201,6 +223,7 @@ Verification flow: primary answer + secondary answer → `SequenceMatcher(ratio 
 
 ## Security
 
+- Supabase JWT verification on all analysis endpoints
 - MIME validation (JPEG/PNG/WEBP only)
 - File size limit (default 10 MB)
 - Rate limiting (30 req/min per IP, in-memory)
@@ -214,7 +237,7 @@ Verification flow: primary answer + secondary answer → `SequenceMatcher(ratio 
 
 ```bash
 cp .env.example .env
-# Set OPENROUTER_API_KEY in .env
+# Set OPENROUTER_API_KEY and SUPABASE_JWT_SECRET in .env
 docker compose up -d
 ```
 
@@ -224,8 +247,8 @@ docker compose up -d
 
 1. Fork this repository
 2. Create a new Blueprint in Render → link to `render.yaml`
-3. Set `OPENROUTER_API_KEY` in the Render environment dashboard
-4. Set `REACT_APP_BACKEND_URL` in the frontend service to the backend's URL
+3. Set `OPENROUTER_API_KEY` and `SUPABASE_JWT_SECRET` in the backend environment
+4. Set `REACT_APP_BACKEND_URL`, `REACT_APP_SUPABASE_URL`, `REACT_APP_SUPABASE_ANON_KEY` in the frontend environment
 
 ---
 
@@ -235,15 +258,3 @@ docker compose up -d
 - Health check: `GET /api/health`
 - 12-factor compliant (all config via env vars)
 - Scale backend replicas horizontally
-
----
-
-## Extension Points
-
-| Feature | Where |
-|---------|-------|
-| New AI provider | `providers/new_provider.py` extends `VisionProvider` |
-| Answer history | MongoDB repository + `/api/sessions` |
-| Benchmarking | `services/benchmark.py` |
-| Auth | JWT middleware in `server.py` |
-| PWA | Add `manifest.json` + service worker to frontend |

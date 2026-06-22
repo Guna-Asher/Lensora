@@ -15,7 +15,7 @@ from typing import Optional
 import httpx
 from .vision_provider import VisionProvider
 
-logger = logging.getLogger("screensolve.providers")
+logger = logging.getLogger("lensora.providers")
 
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -132,8 +132,8 @@ class OpenRouterProvider(VisionProvider):
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": os.environ.get("APP_URL", "https://screensolve.app"),
-            "X-Title": "ScreenSolve",
+            "HTTP-Referer": os.environ.get("APP_URL", "https://lensora.app"),
+            "X-Title": "Lensora",
         }
 
         async with httpx.AsyncClient(timeout=60.0) as client:

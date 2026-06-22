@@ -1,5 +1,5 @@
 """
-ScreenSolve — Screen Detection Test Suite
+Lensora — Screen Detection Test Suite
 ==========================================
 
 Measures failure rates across 12 detection categories before algorithm tuning.
@@ -397,7 +397,7 @@ def run_category(category: str, verbose: bool = False) -> dict:
 def run_full_suite(verbose: bool = True) -> dict:
     """Run all categories and return a structured failure-rate report."""
     print("\n" + "=" * 70)
-    print("  ScreenSolve — Screen Detection Test Suite")
+    print("  Lensora — Screen Detection Test Suite")
     print("=" * 70)
 
     all_results  = {}

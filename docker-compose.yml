@@ -5,7 +5,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: screensolve-backend
+    container_name: lensora-backend
     restart: unless-stopped
     ports:
       - "8001:8001"
@@ -20,7 +20,7 @@ services:
       - LARGE_QUESTION_THRESHOLD=${LARGE_QUESTION_THRESHOLD:-5}
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-10}
       - MONGO_URL=${MONGO_URL:-mongodb://mongo:27017}
-      - DB_NAME=${DB_NAME:-screensolve}
+      - DB_NAME=${DB_NAME:-lensora}
       - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
     depends_on:
       - mongo
@@ -36,7 +36,7 @@ services:
       dockerfile: Dockerfile
       args:
         - REACT_APP_BACKEND_URL=http://localhost:8001
-    container_name: screensolve-frontend
+    container_name: lensora-frontend
     restart: unless-stopped
     ports:
       - "3000:80"
@@ -45,7 +45,7 @@ services:
 
   mongo:
     image: mongo:7
-    container_name: screensolve-mongo
+    container_name: lensora-mongo
     restart: unless-stopped
     volumes:
       - mongo_data:/data/db

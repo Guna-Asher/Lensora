@@ -1,17 +1,17 @@
-# ScreenSolve — Render.com Deployment Blueprint
+# Lensora — Render.com Deployment Blueprint
 # Deploy with: https://dashboard.render.com/blueprints
 # Or link this file in your Render dashboard.
 #
 # Services:
-#   screensolve-api   — Python FastAPI backend (Web Service)
-#   screensolve-web   — React frontend (Static Site)
+#   lensora-api   — Python FastAPI backend (Web Service)
+#   lensora-web   — React frontend (Static Site)
 
 services:
   # ─────────────────────────────────────────────────────────
   # Backend API — FastAPI + OpenCV + OpenRouter
   # ─────────────────────────────────────────────────────────
   - type: web
-    name: screensolve-api
+    name: lensora-api
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
@@ -41,7 +41,7 @@ services:
       - key: CORS_ORIGINS
         value: "*"
       - key: DB_NAME
-        value: screensolve
+        value: lensora
       - key: SUPABASE_JWT_SECRET
         sync: false
 
@@ -49,14 +49,14 @@ services:
   # Frontend — React Static Site
   # ─────────────────────────────────────────────────────────
   - type: web
-    name: screensolve-web
+    name: lensora-web
     runtime: static
     rootDir: frontend
     buildCommand: yarn install && yarn build
     staticPublishPath: build
     autoDeploy: true
     envVars:
-      # Point to your deployed API URL, e.g. https://screensolve-api.onrender.com
+      # Point to your deployed API URL, e.g. https://lensora-api.onrender.com
       - key: REACT_APP_BACKEND_URL
         sync: false
       - key: REACT_APP_SUPABASE_URL

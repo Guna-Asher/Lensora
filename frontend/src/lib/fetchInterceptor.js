@@ -1,6 +1,6 @@
 /**
  * Fetch interceptor — attaches the Supabase JWT to every request that targets
- * the ScreenSolve backend API, without modifying any existing component code.
+ * the Lensora backend API, without modifying any existing component code.
  *
  * Called ONCE at module-load time from App.js via setupFetchInterceptor().
  * Guards against double-patching with the _intercepted flag.
@@ -27,7 +27,7 @@ export function setupFetchInterceptor() {
         ? input.href
         : input.url || "";
 
-    // Only intercept calls to the ScreenSolve backend
+    // Only intercept calls to the Lensora backend
     const isBackendCall =
       (BACKEND_URL && url.startsWith(BACKEND_URL)) ||
       url.includes("/api/");

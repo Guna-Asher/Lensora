@@ -1,4 +1,4 @@
-"""Auth JWT middleware tests for ScreenSolve — iteration 4"""
+"""Auth JWT middleware tests for Lensora — iteration 4"""
 import pytest
 import requests
 import os

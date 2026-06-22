@@ -1,4 +1,4 @@
-# ScreenSolve — Product Requirements Document
+# Lensora — Product Requirements Document
 
 **Last Updated:** 2026-06-20
 
@@ -6,7 +6,7 @@
 
 ## Product Overview
 
-ScreenSolve is a production-ready, enterprise-grade, self-hostable platform that provides highly accurate answers from photos and screenshots.
+Lensora is a production-ready, enterprise-grade, self-hostable platform that provides highly accurate answers from photos and screenshots.
 
 **Core Flow:** Screen Photo → OpenCV Processing → OpenRouter Vision AI → Concise Answers
 

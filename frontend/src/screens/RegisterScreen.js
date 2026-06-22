@@ -63,7 +63,7 @@ export default function RegisterScreen() {
         <h1 className="text-2xl font-semibold tracking-tight text-[#F8F8F8]">
           Create account
         </h1>
-        <p className="mt-1 text-sm text-[#A1A1AA]">to get started with ScreenSolve</p>
+        <p className="mt-1 text-sm text-[#A1A1AA]">to get started with Lensora</p>
       </div>
 
       {/* Error */}

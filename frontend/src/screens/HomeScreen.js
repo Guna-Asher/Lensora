@@ -94,7 +94,7 @@ export default function HomeScreen() {
           data-testid="app-title"
           className="text-4xl font-semibold tracking-tighter text-[#F8F8F8] mb-4"
         >
-          ScreenSolve
+          Lensora
         </h1>
 
         <p className="text-base text-[#A1A1AA] max-w-[220px] leading-relaxed">

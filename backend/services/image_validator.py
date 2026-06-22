@@ -9,7 +9,7 @@ import numpy as np
 import logging
 from typing import Tuple
 
-logger = logging.getLogger("screensolve.image_validator")
+logger = logging.getLogger("lensora.image_validator")
 
 # Thresholds
 MIN_PIXELS = 40_000        # ~200x200 minimum

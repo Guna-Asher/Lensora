@@ -1,15 +1,12 @@
 /**
- * LoginScreen — email/password login and Google OAuth.
+ * LoginScreen — email/password login.
  *
  * Matches the existing app aesthetic:
  *  - bg-[#0A0A0A], max-w-md, rounded-2xl cards, #2563EB primary
- *
- * Google OAuth button is always rendered. It will only function after
- * Google provider is configured in the Supabase dashboard.
  */
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { Scan, Mail, Lock, Chrome } from "lucide-react";
+import { Scan, Mail, Lock } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 
@@ -42,24 +39,6 @@ export default function LoginScreen() {
     if (err) setError(err.message);
   };
 
-  const handleGoogleLogin = async () => {
-    if (!supabase) {
-      setError("Authentication is not configured.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    const { error: err } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + "/" },
-    });
-    if (err) {
-      setError(err.message);
-      setLoading(false);
-    }
-    // On success Supabase redirects; no further action needed here
-  };
-
   return (
     <div
       className="flex flex-col min-h-screen bg-[#0A0A0A] px-6 py-10"
@@ -73,7 +52,7 @@ export default function LoginScreen() {
         <h1 className="text-2xl font-semibold tracking-tight text-[#F8F8F8]">
           Sign in
         </h1>
-        <p className="mt-1 text-sm text-[#A1A1AA]">to continue to ScreenSolve</p>
+        <p className="mt-1 text-sm text-[#A1A1AA]">to continue to Lensora</p>
       </div>
 
       {/* Error */}
@@ -127,7 +106,7 @@ export default function LoginScreen() {
       </form>
 
       {/* Forgot password */}
-      <div className="text-right mb-6">
+      <div className="text-right mb-8">
         <Link
           data-testid="forgot-password-link"
           to="/forgot-password"
@@ -136,25 +115,6 @@ export default function LoginScreen() {
           Forgot password?
         </Link>
       </div>
-
-      {/* Divider */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1 h-px bg-[#27272A]" />
-        <span className="text-xs text-[#52525B]">or</span>
-        <div className="flex-1 h-px bg-[#27272A]" />
-      </div>
-
-      {/* Google OAuth */}
-      <button
-        data-testid="google-login-button"
-        type="button"
-        onClick={handleGoogleLogin}
-        disabled={loading}
-        className="w-full h-14 bg-[#111111] border border-[#27272A] text-[#F8F8F8] rounded-2xl font-medium text-sm flex items-center justify-center gap-3 active:opacity-80 transition-opacity disabled:opacity-50 mb-8"
-      >
-        <Chrome size={18} className="text-[#A1A1AA]" />
-        Continue with Google
-      </button>
 
       {/* Register link */}
       <p className="text-center text-sm text-[#A1A1AA]">

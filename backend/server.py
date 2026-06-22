@@ -1,4 +1,4 @@
-"""ScreenSolve - FastAPI Backend"""
+"""Lensora - FastAPI Backend"""
 import os
 import sys
 import re
@@ -34,10 +34,10 @@ logging.basicConfig(
     level=logging.INFO,
     format='{"time": "%(asctime)s", "level": "%(levelname)s", "logger": "%(name)s", "msg": "%(message)s"}'
 )
-logger = logging.getLogger("screensolve")
+logger = logging.getLogger("lensora")
 
 app = FastAPI(
-    title="ScreenSolve API",
+    title="Lensora API",
     version="1.0.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json"
@@ -330,7 +330,7 @@ async def run_analysis(file: UploadFile, explain: bool, request_id: str) -> dict
 async def health():
     return {
         "status": "healthy",
-        "service": "ScreenSolve API",
+        "service": "Lensora API",
         "version": "1.0.0",
         "verification_enabled": ENABLE_VERIFICATION,
         "timestamp": datetime.now(timezone.utc).isoformat()
@@ -388,9 +388,9 @@ async def startup():
     if not key:
         logger.warning("OPENROUTER_API_KEY not set — /analyze and /upload will return 503")
     else:
-        logger.info("ScreenSolve API started. OpenRouter configured.")
+        logger.info("Lensora API started. OpenRouter configured.")
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    logger.info("ScreenSolve API shutting down.")
+    logger.info("Lensora API shutting down.")

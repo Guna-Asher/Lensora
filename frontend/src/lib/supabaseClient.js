@@ -14,7 +14,7 @@ const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    "[ScreenSolve] Supabase not configured. " +
+    "[Lensora] Supabase not configured. " +
       "Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY to enable authentication."
   );
 }

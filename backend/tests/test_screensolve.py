@@ -1,4 +1,4 @@
-"""ScreenSolve backend tests — health, analyze, upload, MIME, size, rate limit, provider imports"""
+"""Lensora backend tests — health, analyze, upload, MIME, size, rate limit, provider imports"""
 import os
 import io
 import pytest

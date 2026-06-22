@@ -31,7 +31,7 @@ import numpy as np
 import logging
 from typing import Optional, Tuple, List
 
-logger = logging.getLogger("screensolve.screen_detector")
+logger = logging.getLogger("lensora.screen_detector")
 
 # Detection downscale target (longest side, pixels)
 _MAX_DETECT_DIM = 1500
