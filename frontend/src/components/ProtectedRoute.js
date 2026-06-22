@@ -28,7 +28,6 @@ export default function ProtectedRoute({ children }) {
 
   if (!user) {
     const isGuest = localStorage.getItem("lensora_guest") === "true";
-    console.log("[ProtectedRoute] user=null isGuest=", isGuest, "raw=", localStorage.getItem("lensora_guest"));
     if (!isGuest) {
       return (
         <Navigate to="/login" replace state={{ from: location }} />
