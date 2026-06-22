@@ -201,3 +201,26 @@ REACT_APP_SUPABASE_ANON_KEY= # Required for Supabase auth
 - [x] Guest users remain subject to the 3-analysis backend limit (unaffected)
 - [x] Debug console.log removed from ProtectedRoute.js (cleanup complete)
 - [x] All 9 automated tests pass (100% frontend + backend success rate)
+
+### Render Deployment & OpenRouter Reliability — v1.6 (2026-06-22)
+- [x] render.yaml: Added MONGO_URL (sync:false) — required for analytics on Render/Atlas
+- [x] render.yaml: Added APP_URL (sync:false) — OpenRouter HTTP-Referer header, no hardcoded fallback
+- [x] frontend/Dockerfile: Added ARG/ENV for REACT_APP_SUPABASE_URL + REACT_APP_SUPABASE_ANON_KEY
+- [x] docker-compose.yml: Added REACT_APP_SUPABASE_URL + REACT_APP_SUPABASE_ANON_KEY to build args
+- [x] server.py: Added `import httpx` + error handling wrapper around run_analysis()
+  - httpx.TimeoutException → HTTP 504 "Vision AI request timed out"
+  - httpx.HTTPStatusError 429 → HTTP 429 "Vision AI quota exceeded"
+  - httpx.HTTPStatusError 5xx → HTTP 503 "Vision AI service temporarily unavailable"
+  - httpx.RequestError → HTTP 503 "Unable to reach Vision AI service"
+  - Bare Exception → HTTP 500 "Analysis failed unexpectedly"
+  - HTTPException (400s from run_analysis) re-raised unchanged
+- [x] openrouter_provider.py: NOT MODIFIED (frozen)
+- [x] run_analysis(): NOT MODIFIED (frozen)
+- [x] Deployment agent: PASS — zero blockers
+
+### ScreenSolve References (remaining — for review, not changed)
+All three occurrences are in frozen file openrouter_provider.py, internal prompt text only:
+- Line 24: ANSWERS_PROMPT system role identity
+- Line 52: EXPLAIN_PROMPT system role identity
+- Line 72: VERIFY_PROMPT system role identity
+Category: Internal prompt text. NOT user-facing. NOT in API responses.
