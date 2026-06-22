@@ -193,3 +193,11 @@ REACT_APP_SUPABASE_ANON_KEY= # Required for Supabase auth
 - [x] ResultsScreen: ThumbsUp/ThumbsDown feedback buttons + confirmation message
 - [x] event_id added to /api/analyze response (additive, existing fields unchanged)
 - [x] run_analysis(), screen_detector, image_validator, openrouter_provider — NOT MODIFIED
+
+### Guest Onboarding Flow — v1.5 (2026-06-22)
+- [x] "Continue as Guest" button on LoginScreen (data-testid="continue-as-guest-button")
+- [x] handleGuestMode() sets localStorage key "lensora_guest=true" then navigates to /
+- [x] ProtectedRoute.js allows access if user authenticated OR localStorage lensora_guest=true
+- [x] Guest users remain subject to the 3-analysis backend limit (unaffected)
+- [x] Debug console.log removed from ProtectedRoute.js (cleanup complete)
+- [x] All 9 automated tests pass (100% frontend + backend success rate)
