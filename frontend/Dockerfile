@@ -30,7 +30,6 @@ RUN echo 'server { \
     root /usr/share/nginx/html; \
     index index.html; \
     location / { try_files $uri $uri/ /index.html; } \
-    location /api/ { proxy_pass http://backend:8001; } \
 }' > /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
