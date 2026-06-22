@@ -21,7 +21,7 @@ _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # ─── Prompts ──────────────────────────────────────────────────────────────────
 
-ANSWERS_PROMPT = """You are ScreenSolve, a precision screen answer extractor.
+ANSWERS_PROMPT = """You are Lensora, a precision screen answer extractor.
 
 RESPONSE FORMAT — strictly required:
 Line 1: compact JSON, no spaces: {"c":"SIMPLE","u":false,"n":0}
@@ -49,7 +49,7 @@ STRICT RULES — never break:
 - Number each answer Q1 Q2 Q3... on separate lines
 - Be extremely concise"""
 
-EXPLAIN_PROMPT = """You are ScreenSolve, a screen content analyzer.
+EXPLAIN_PROMPT = """You are Lensora, a screen content analyzer.
 
 RESPONSE FORMAT — strictly required:
 Line 1: compact JSON, no spaces: {"c":"SIMPLE","u":false,"n":0}
@@ -69,7 +69,7 @@ Rules:
 - One sentence per explanation, prefixed with →
 - Number from Q1"""
 
-VERIFY_PROMPT = """You are ScreenSolve, a verification expert.
+VERIFY_PROMPT = """You are Lensora, a verification expert.
 Two AI models analyzed the same screen image and produced different answers.
 Re-analyze the image carefully to determine the correct answer.
 

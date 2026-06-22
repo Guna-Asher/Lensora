@@ -218,9 +218,9 @@ REACT_APP_SUPABASE_ANON_KEY= # Required for Supabase auth
 - [x] run_analysis(): NOT MODIFIED (frozen)
 - [x] Deployment agent: PASS — zero blockers
 
-### ScreenSolve References (remaining — for review, not changed)
-All three occurrences are in frozen file openrouter_provider.py, internal prompt text only:
-- Line 24: ANSWERS_PROMPT system role identity
-- Line 52: EXPLAIN_PROMPT system role identity
-- Line 72: VERIFY_PROMPT system role identity
-Category: Internal prompt text. NOT user-facing. NOT in API responses.
+### ScreenSolve → Lensora Branding — v1.6.1 (2026-06-22)
+- [x] openrouter_provider.py line 24: ANSWERS_PROMPT role identity updated
+- [x] openrouter_provider.py line 52: EXPLAIN_PROMPT role identity updated
+- [x] openrouter_provider.py line 72: VERIFY_PROMPT role identity updated
+- [x] Pure name substitution only — no prompt logic, format rules, or parameters changed
+- [x] Zero remaining ScreenSolve references in codebase
