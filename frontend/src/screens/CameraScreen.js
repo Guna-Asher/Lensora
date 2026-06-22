@@ -1,8 +1,20 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, ScanSearch, Upload } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const ANON_KEY = "lensora_anon_id";
+
+function getOrCreateAnonId() {
+  let id = localStorage.getItem(ANON_KEY);
+  if (!id) {
+    const r = () => Math.random().toString(36).slice(2, 9);
+    id = `anon_${r()}${r()}`;
+    localStorage.setItem(ANON_KEY, id);
+  }
+  return id;
+}
 
 export default function CameraScreen() {
   const videoRef = useRef(null);
@@ -10,11 +22,13 @@ export default function CameraScreen() {
   const streamRef = useRef(null);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [cameraReady, setCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState(null);
   const [cameraDenied, setCameraDenied] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -53,12 +67,20 @@ export default function CameraScreen() {
     async (blob, imageDataUrl) => {
       const formData = new FormData();
       formData.append("file", blob, "image.jpg");
+      if (!user) formData.append("anonymous_id", getOrCreateAnonId());
       try {
         const res = await fetch(`${BACKEND_URL}/api/analyze`, {
           method: "POST",
           body: formData,
         });
         const result = await res.json();
+
+        if (res.status === 403) {
+          setIsCapturing(false);
+          setLimitReached(true);
+          return;
+        }
+
         if (!res.ok) throw new Error(result.detail || "Analysis failed");
         navigate("/results", { state: { result, imageDataUrl } });
       } catch (err) {
@@ -67,11 +89,29 @@ export default function CameraScreen() {
         if (!cameraDenied) startCamera();
       }
     },
-    [navigate, cameraDenied, startCamera]
+    [navigate, cameraDenied, startCamera, user]
   );
 
   const capture = useCallback(async () => {
     if (!cameraReady || isCapturing) return;
+
+    // UX pre-check for anonymous users (backend also enforces independently)
+    if (!user) {
+      const anonId = getOrCreateAnonId();
+      try {
+        const res = await fetch(
+          `${BACKEND_URL}/api/anonymous/check?anonymous_id=${encodeURIComponent(anonId)}`
+        );
+        const data = await res.json();
+        if (!data.can_scan) {
+          setLimitReached(true);
+          return;
+        }
+      } catch {
+        // fail open — allow capture if check fails
+      }
+    }
+
     setIsCapturing(true);
 
     const video = videoRef.current;
@@ -85,7 +125,7 @@ export default function CameraScreen() {
     const imageDataUrl = canvas.toDataURL("image/jpeg", 0.92);
     stopCamera();
     canvas.toBlob((blob) => analyzeFile(blob, imageDataUrl), "image/jpeg", 0.92);
-  }, [cameraReady, isCapturing, stopCamera, analyzeFile]);
+  }, [cameraReady, isCapturing, stopCamera, analyzeFile, user]);
 
   const handleUploadFallback = async (e) => {
     const file = e.target.files?.[0];
@@ -162,6 +202,43 @@ export default function CameraScreen() {
           <div className="w-12 h-12 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin mb-5" />
           <p className="text-[#F8F8F8] font-medium text-lg">Analyzing screen...</p>
           <p className="text-[#A1A1AA] text-sm mt-2">Detecting and extracting answers</p>
+        </div>
+      )}
+
+      {/* Limit reached overlay */}
+      {limitReached && (
+        <div
+          data-testid="camera-limit-reached"
+          className="absolute inset-0 bg-black/90 backdrop-blur-sm flex items-end z-50"
+        >
+          <div className="w-full bg-[#181818] rounded-t-3xl border-t border-[#27272A] px-8 pb-12 pt-5">
+            <div className="w-10 h-1 bg-[#27272A] rounded-full mx-auto mb-6" />
+            <div className="mb-4 w-12 h-12 rounded-2xl bg-[#2563EB]/10 border border-[#2563EB]/30 flex items-center justify-center">
+              <ScanSearch size={22} className="text-[#2563EB]" />
+            </div>
+            <h2 className="text-xl font-semibold text-[#F8F8F8] mb-2">
+              You've used all free scans.
+            </h2>
+            <p className="text-sm text-[#A1A1AA] mb-8 leading-relaxed">
+              Create a free account to continue scanning without limits.
+            </p>
+            <div className="space-y-3">
+              <button
+                data-testid="camera-limit-register-button"
+                onClick={() => navigate("/register")}
+                className="w-full h-14 bg-[#2563EB] text-white rounded-2xl font-medium text-sm active:opacity-80 transition-opacity"
+              >
+                Create Free Account
+              </button>
+              <button
+                data-testid="camera-limit-login-button"
+                onClick={() => navigate("/login")}
+                className="w-full h-14 bg-[#111111] border border-[#27272A] text-[#F8F8F8] rounded-2xl font-medium text-sm active:opacity-80 transition-opacity"
+              >
+                Login
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

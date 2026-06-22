@@ -1,9 +1,20 @@
-import React, { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useRef, useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Camera, Upload, Scan, LogOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const ANON_KEY = "lensora_anon_id";
+
+function getOrCreateAnonId() {
+  let id = localStorage.getItem(ANON_KEY);
+  if (!id) {
+    const r = () => Math.random().toString(36).slice(2, 9);
+    id = `anon_${r()}${r()}`;
+    localStorage.setItem(ANON_KEY, id);
+  }
+  return id;
+}
 
 function readFileAsDataURL(file) {
   return new Promise((resolve) => {
@@ -15,9 +26,12 @@ function readFileAsDataURL(file) {
 
 export default function HomeScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState(null);
+  const [showSignupWall, setShowSignupWall] = useState(false);
+  const [scanStatus, setScanStatus] = useState(null);
   const { user, signOut } = useAuth();
 
   const handleSignOut = async () => {
@@ -25,9 +39,42 @@ export default function HomeScreen() {
     navigate("/login", { replace: true });
   };
 
+  // Fetch anonymous scan status on mount (only for unauthenticated users)
+  useEffect(() => {
+    if (user) { setScanStatus(null); return; }
+    const anonId = getOrCreateAnonId();
+    fetch(`${BACKEND_URL}/api/anonymous/check?anonymous_id=${encodeURIComponent(anonId)}`)
+      .then((r) => r.json())
+      .then((data) => setScanStatus(data))
+      .catch(() => setScanStatus({ can_scan: true }));
+  }, [user]);
+
+  // Show signup wall if CameraScreen navigated back with flag
+  useEffect(() => {
+    if (location.state?.showSignupWall) {
+      setShowSignupWall(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
+
+  const handleCameraClick = () => {
+    if (!user && scanStatus && !scanStatus.can_scan) {
+      setShowSignupWall(true);
+      return;
+    }
+    navigate("/camera");
+  };
+
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // UX pre-check (backend also enforces independently)
+    if (!user && scanStatus && !scanStatus.can_scan) {
+      setShowSignupWall(true);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
 
     setIsAnalyzing(true);
     setError(null);
@@ -35,6 +82,7 @@ export default function HomeScreen() {
     const imageDataUrl = await readFileAsDataURL(file);
     const formData = new FormData();
     formData.append("file", file);
+    if (!user) formData.append("anonymous_id", getOrCreateAnonId());
 
     try {
       const res = await fetch(`${BACKEND_URL}/api/analyze`, {
@@ -42,12 +90,35 @@ export default function HomeScreen() {
         body: formData,
       });
       const result = await res.json();
+
+      if (res.status === 403) {
+        setScanStatus((prev) => ({ ...(prev || {}), can_scan: false }));
+        setShowSignupWall(true);
+        setIsAnalyzing(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
       if (!res.ok) throw new Error(result.detail || "Analysis failed");
+
+      // Optimistically update local scan status
+      if (!user) {
+        setScanStatus((prev) =>
+          prev
+            ? {
+                ...prev,
+                analysis_count: (prev.analysis_count || 0) + 1,
+                analyses_remaining: Math.max(0, (prev.analyses_remaining ?? 1) - 1),
+                can_scan: (prev.analyses_remaining ?? 1) > 1,
+              }
+            : null
+        );
+      }
+
       navigate("/results", { state: { result, imageDataUrl } });
     } catch (err) {
       setError(err.message || "Upload failed. Please try again.");
       setIsAnalyzing(false);
-      // Reset input so same file can be re-selected
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -116,7 +187,7 @@ export default function HomeScreen() {
       <div className="w-full space-y-3 pb-4" data-testid="action-buttons">
         <button
           data-testid="capture-button"
-          onClick={() => navigate("/camera")}
+          onClick={handleCameraClick}
           disabled={isAnalyzing}
           className="w-full h-14 bg-[#2563EB] text-[#F8F8F8] rounded-2xl font-medium flex items-center justify-center gap-3 active:opacity-80 transition-opacity duration-150 disabled:opacity-50"
         >
@@ -156,6 +227,50 @@ export default function HomeScreen() {
             <p className="text-[#A1A1AA] text-sm text-center">
               Detecting content and extracting answers
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Signup wall — shown when free scan limit is reached */}
+      {showSignupWall && (
+        <div
+          data-testid="signup-wall"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end z-50"
+          onClick={() => setShowSignupWall(false)}
+        >
+          <div
+            className="w-full bg-[#181818] rounded-t-3xl border-t border-[#27272A] px-8 pb-12 pt-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-[#27272A] rounded-full mx-auto mb-6" />
+            <div className="mb-4 w-12 h-12 rounded-2xl bg-[#2563EB]/10 border border-[#2563EB]/30 flex items-center justify-center">
+              <Scan size={22} className="text-[#2563EB]" />
+            </div>
+            <h2
+              data-testid="signup-wall-heading"
+              className="text-xl font-semibold text-[#F8F8F8] mb-2"
+            >
+              You've used all free scans.
+            </h2>
+            <p className="text-sm text-[#A1A1AA] mb-8 leading-relaxed">
+              Create a free account to continue scanning without limits.
+            </p>
+            <div className="space-y-3">
+              <button
+                data-testid="signup-wall-register-button"
+                onClick={() => navigate("/register")}
+                className="w-full h-14 bg-[#2563EB] text-white rounded-2xl font-medium text-sm active:opacity-80 transition-opacity"
+              >
+                Create Free Account
+              </button>
+              <button
+                data-testid="signup-wall-login-button"
+                onClick={() => navigate("/login")}
+                className="w-full h-14 bg-[#111111] border border-[#27272A] text-[#F8F8F8] rounded-2xl font-medium text-sm active:opacity-80 transition-opacity"
+              >
+                Login
+              </button>
+            </div>
           </div>
         </div>
       )}

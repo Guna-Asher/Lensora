@@ -7,9 +7,13 @@ import {
   CheckCircle,
   AlertCircle,
   Check,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const ANON_KEY = "lensora_anon_id";
 
 function dataURLtoBlob(dataURL) {
   const [header, data] = dataURL.split(",");
@@ -98,6 +102,7 @@ export default function ResultsScreen() {
   const answersRef = useRef(null);
   const sheetRef = useRef(null);
   const touchStartY = useRef(null);
+  const { user } = useAuth();
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -105,9 +110,32 @@ export default function ResultsScreen() {
   const [explanations, setExplanations] = useState(null);
   const [explainError, setExplainError] = useState(null);
   const [hasOverflow, setHasOverflow] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   const result = state?.result;
   const imageDataUrl = state?.imageDataUrl;
+
+  const handleFeedback = useCallback(async (feedbackValue) => {
+    if (!result?.event_id || feedbackSubmitted || feedbackLoading) return;
+    setFeedbackLoading(true);
+    try {
+      await fetch(`${BACKEND_URL}/api/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: result.event_id,
+          feedback: feedbackValue,
+          anonymous_id: !user ? (localStorage.getItem(ANON_KEY) || null) : null,
+        }),
+      });
+      setFeedbackSubmitted(true);
+    } catch {
+      // Feedback is optional — silently ignore errors
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }, [result, feedbackSubmitted, feedbackLoading, user]);
 
   useEffect(() => {
     if (!result) { navigate("/", { replace: true }); return; }
@@ -277,6 +305,44 @@ export default function ResultsScreen() {
           className="px-6 pb-10 pt-3 space-y-3 border-t border-[#27272A] shrink-0"
           data-testid="result-actions"
         >
+          {/* Feedback */}
+          {result?.event_id && (
+            <div data-testid="feedback-section" className="pb-1">
+              {feedbackSubmitted ? (
+                <p
+                  data-testid="feedback-confirmation"
+                  className="text-center text-xs text-[#22C55E] py-2"
+                >
+                  Thanks for your feedback!
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-[#52525B] text-center mb-2">Was this answer helpful?</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      data-testid="feedback-correct-button"
+                      onClick={() => handleFeedback("correct")}
+                      disabled={feedbackLoading}
+                      className="h-11 bg-[#111111] border border-[#27272A] text-[#F8F8F8] rounded-xl font-medium flex items-center justify-center gap-2 active:opacity-70 transition-opacity disabled:opacity-50"
+                    >
+                      <ThumbsUp size={15} />
+                      Correct
+                    </button>
+                    <button
+                      data-testid="feedback-incorrect-button"
+                      onClick={() => handleFeedback("incorrect")}
+                      disabled={feedbackLoading}
+                      className="h-11 bg-[#111111] border border-[#27272A] text-[#F8F8F8] rounded-xl font-medium flex items-center justify-center gap-2 active:opacity-70 transition-opacity disabled:opacity-50"
+                    >
+                      <ThumbsDown size={15} />
+                      Incorrect
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <button
               data-testid="copy-all-button"

@@ -18,6 +18,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import jwt
+from motor.motor_asyncio import AsyncIOMotorClient
 import numpy as np
 import cv2
 
@@ -59,29 +60,51 @@ RATE_WINDOW = 60
 _http_bearer = HTTPBearer(auto_error=False)
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
 
+# Free tier
+FREE_SCAN_LIMIT = 3
 
-async def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(_http_bearer)):
-    """
-    FastAPI dependency: verifies the Supabase-issued JWT on every protected endpoint.
+# MongoDB (motor async client — lazy init)
+_mongo_client: Optional[AsyncIOMotorClient] = None
 
-    - If SUPABASE_JWT_SECRET is not configured → 503 (auth not set up server-side).
-    - If no Authorization header → 401.
-    - If token is invalid/expired → 401.
+
+def _get_db():
+    """Return async MongoDB handle, or None if MONGO_URL is not set."""
+    global _mongo_client
+    mongo_url = os.environ.get("MONGO_URL", "")
+    if not mongo_url:
+        return None
+    if _mongo_client is None:
+        _mongo_client = AsyncIOMotorClient(mongo_url)
+    return _mongo_client[os.environ.get("DB_NAME", "lensora")]
+
+
+async def get_auth_context(
+    credentials: HTTPAuthorizationCredentials = Depends(_http_bearer),
+) -> dict:
     """
+    Optional auth dependency — used on /analyze and /upload.
+
+    Behavior:
+      - No token       → anonymous  {"user_id": None,  "authenticated": False}
+      - Valid JWT      → auth user  {"user_id": <sub>, "authenticated": True}
+      - Invalid JWT    → HTTP 401   (NEVER treated as anonymous)
+      - Auth not configured + token present → HTTP 503
+    """
+    if credentials is None:
+        return {"user_id": None, "authenticated": False}
     if not SUPABASE_JWT_SECRET:
         raise HTTPException(
             status_code=503,
-            detail="Authentication is not configured. Set SUPABASE_JWT_SECRET."
+            detail="Authentication is not configured. Set SUPABASE_JWT_SECRET.",
         )
-    if credentials is None:
-        raise HTTPException(status_code=401, detail="Authorization header required.")
     try:
-        jwt.decode(
+        payload = jwt.decode(
             credentials.credentials,
             SUPABASE_JWT_SECRET,
             algorithms=["HS256"],
             options={"verify_aud": False},
         )
+        return {"user_id": payload.get("sub"), "authenticated": True}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired.")
     except jwt.InvalidTokenError as exc:
@@ -326,6 +349,98 @@ async def run_analysis(file: UploadFile, explain: bool, request_id: str) -> dict
             pass
 
 
+async def _create_analysis_event(db, **kwargs) -> str:
+    """Insert one analysis_events document and return its event_id."""
+    event_id = str(uuid.uuid4())
+    await db.analysis_events.insert_one({
+        "event_id": event_id,
+        "created_at": datetime.now(timezone.utc),
+        **kwargs,
+    })
+    return event_id
+
+
+async def _tracked_analyze(
+    request: Request,
+    file: UploadFile,
+    explain: bool,
+    anonymous_id: Optional[str],
+    auth: dict,
+    endpoint: str,
+) -> dict:
+    """
+    Thin wrapper around run_analysis() that adds:
+      1. Rate limiting                (existing logic, untouched)
+      2. Anonymous limit enforcement  (NEW — backend source of truth, BEFORE run_analysis)
+      3. OPENROUTER_API_KEY check     (existing logic, untouched)
+      4. run_analysis()               (READ-ONLY — not modified)
+      5. Post-success analytics       (NEW — only reached when run_analysis succeeds)
+    """
+    request_id = str(uuid.uuid4())[:8]
+    client_ip = get_client_ip(request)
+
+    if not check_rate_limit(client_ip):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Please wait and retry.")
+
+    logger.info(
+        f"rid={request_id} endpoint={endpoint} ip={client_ip} "
+        f"authenticated={auth['authenticated']}"
+    )
+
+    # ── Anonymous limit enforcement (backend source of truth) ──────────────
+    db = _get_db()
+    if not auth["authenticated"] and anonymous_id and db is not None:
+        doc = await db.anonymous_usage.find_one({"anonymous_id": anonymous_id})
+        current_count = doc["analysis_count"] if doc else 0
+        if current_count >= FREE_SCAN_LIMIT:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"Free analysis limit reached ({FREE_SCAN_LIMIT} scans). "
+                    "Create a free account to continue."
+                ),
+            )
+
+    if not os.environ.get("OPENROUTER_API_KEY"):
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "error": "OPENROUTER_API_KEY is not configured"},
+        )
+
+    # ── Core pipeline — READ-ONLY, NOT MODIFIED ─────────────────────────────
+    result = await run_analysis(file, explain, request_id)
+
+    # ── Post-success analytics (fire-and-forget: never fails the request) ───
+    if db is not None:
+        try:
+            event_id = await _create_analysis_event(
+                db,
+                user_id=auth.get("user_id"),
+                anonymous_id=anonymous_id if not auth["authenticated"] else None,
+                authenticated=auth["authenticated"],
+                status="success",
+                processing_time_ms=result.get("processing_time_ms"),
+                model_used=result.get("model_used"),
+            )
+            result["event_id"] = event_id
+
+            if not auth["authenticated"] and anonymous_id:
+                now = datetime.now(timezone.utc)
+                await db.anonymous_usage.update_one(
+                    {"anonymous_id": anonymous_id},
+                    {
+                        "$inc": {"analysis_count": 1},
+                        "$set": {"last_seen_at": now},
+                        "$setOnInsert": {"first_seen_at": now},
+                    },
+                    upsert=True,
+                )
+        except Exception as exc:
+            logger.warning(f"rid={request_id} analytics tracking failed: {exc}")
+
+    return result
+
+
 @api_router.get("/health")
 async def health():
     return {
@@ -342,23 +457,10 @@ async def analyze_image(
     request: Request,
     file: UploadFile = File(...),
     explain: bool = Form(default=False),
-    _auth=Depends(verify_jwt),
+    anonymous_id: Optional[str] = Form(default=None),
+    auth: dict = Depends(get_auth_context),
 ):
-    request_id = str(uuid.uuid4())[:8]
-    client_ip = get_client_ip(request)
-
-    if not check_rate_limit(client_ip):
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Please wait and retry.")
-
-    logger.info(f"rid={request_id} endpoint=/analyze ip={client_ip}")
-
-    if not os.environ.get("OPENROUTER_API_KEY"):
-        return JSONResponse(
-            status_code=503,
-            content={"success": False, "error": "OPENROUTER_API_KEY is not configured"}
-        )
-
-    return await run_analysis(file, explain, request_id)
+    return await _tracked_analyze(request, file, explain, anonymous_id, auth, "/analyze")
 
 
 @api_router.post("/upload")
@@ -366,10 +468,72 @@ async def upload_image(
     request: Request,
     file: UploadFile = File(...),
     explain: bool = Form(default=False),
-    _auth=Depends(verify_jwt),
+    anonymous_id: Optional[str] = Form(default=None),
+    auth: dict = Depends(get_auth_context),
 ):
     """Upload endpoint — alias for /analyze for file gallery uploads."""
-    return await analyze_image(request, file, explain)
+    return await _tracked_analyze(request, file, explain, anonymous_id, auth, "/upload")
+
+
+@api_router.get("/anonymous/check")
+async def anonymous_check(anonymous_id: str):
+    """
+    Returns anonymous user's usage status for UX pre-check.
+    The backend enforces the limit independently; this is informational.
+    """
+    db = _get_db()
+    if db is None:
+        return {
+            "can_scan": True,
+            "analysis_count": 0,
+            "analyses_remaining": FREE_SCAN_LIMIT,
+            "limit": FREE_SCAN_LIMIT,
+        }
+    doc = await db.anonymous_usage.find_one({"anonymous_id": anonymous_id})
+    count = doc["analysis_count"] if doc else 0
+    return {
+        "can_scan": count < FREE_SCAN_LIMIT,
+        "analysis_count": count,
+        "analyses_remaining": max(0, FREE_SCAN_LIMIT - count),
+        "limit": FREE_SCAN_LIMIT,
+    }
+
+
+@api_router.post("/feedback")
+async def submit_feedback(
+    request: Request,
+    auth: dict = Depends(get_auth_context),
+):
+    """
+    Store user feedback for one analysis. One entry per event_id (enforced).
+    Does not store images, prompts, or answer content.
+    """
+    body = await request.json()
+    event_id = (body.get("event_id") or "").strip()
+    feedback = (body.get("feedback") or "").strip()
+    anonymous_id = (body.get("anonymous_id") or "").strip() or None
+
+    if not event_id or feedback not in ("correct", "incorrect"):
+        raise HTTPException(
+            status_code=400,
+            detail="event_id required; feedback must be 'correct' or 'incorrect'.",
+        )
+
+    db = _get_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database not configured.")
+
+    if await db.analysis_feedback.find_one({"analysis_event_id": event_id}):
+        raise HTTPException(status_code=409, detail="Feedback already submitted for this analysis.")
+
+    await db.analysis_feedback.insert_one({
+        "analysis_event_id": event_id,
+        "user_id": auth.get("user_id"),
+        "anonymous_id": anonymous_id if not auth["authenticated"] else None,
+        "feedback": feedback,
+        "created_at": datetime.now(timezone.utc),
+    })
+    return {"success": True}
 
 
 app.include_router(api_router)
@@ -389,6 +553,18 @@ async def startup():
         logger.warning("OPENROUTER_API_KEY not set — /analyze and /upload will return 503")
     else:
         logger.info("Lensora API started. OpenRouter configured.")
+
+    db = _get_db()
+    if db is not None:
+        try:
+            await db.anonymous_usage.create_index("anonymous_id", unique=True)
+            await db.analysis_events.create_index("event_id", unique=True)
+            await db.analysis_events.create_index("user_id")
+            await db.analysis_events.create_index("anonymous_id")
+            await db.analysis_feedback.create_index("analysis_event_id", unique=True)
+            logger.info("MongoDB indexes ready.")
+        except Exception as exc:
+            logger.warning(f"MongoDB index creation: {exc}")
 
 
 @app.on_event("shutdown")
