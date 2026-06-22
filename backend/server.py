@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+import httpx
 import jwt
 from motor.motor_asyncio import AsyncIOMotorClient
 import numpy as np
@@ -407,8 +408,41 @@ async def _tracked_analyze(
             content={"success": False, "error": "OPENROUTER_API_KEY is not configured"},
         )
 
-    # ── Core pipeline — READ-ONLY, NOT MODIFIED ─────────────────────────────
-    result = await run_analysis(file, explain, request_id)
+    # ── Core pipeline — error-handled wrapper (run_analysis is READ-ONLY) ────
+    try:
+        result = await run_analysis(file, explain, request_id)
+    except HTTPException:
+        raise  # 400s from run_analysis (bad file, quality, angle) pass through
+    except httpx.TimeoutException as exc:
+        logger.warning(f"rid={request_id} OpenRouter timeout: {exc}")
+        raise HTTPException(
+            status_code=504,
+            detail="Vision AI request timed out. Please try again.",
+        )
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        logger.warning(f"rid={request_id} OpenRouter HTTP {status}")
+        if status == 429:
+            raise HTTPException(
+                status_code=429,
+                detail="Vision AI quota exceeded. Please wait and try again.",
+            )
+        raise HTTPException(
+            status_code=503,
+            detail="Vision AI service temporarily unavailable. Please try again.",
+        )
+    except httpx.RequestError as exc:
+        logger.warning(f"rid={request_id} OpenRouter connection error: {exc}")
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to reach Vision AI service. Please try again.",
+        )
+    except Exception as exc:
+        logger.error(f"rid={request_id} unexpected analysis error: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Analysis failed unexpectedly. Please try again.",
+        )
 
     # ── Post-success analytics (fire-and-forget: never fails the request) ───
     if db is not None:

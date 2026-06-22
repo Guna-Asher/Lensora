@@ -36,6 +36,8 @@ services:
       dockerfile: Dockerfile
       args:
         - REACT_APP_BACKEND_URL=http://localhost:8001
+        - REACT_APP_SUPABASE_URL=${REACT_APP_SUPABASE_URL:-}
+        - REACT_APP_SUPABASE_ANON_KEY=${REACT_APP_SUPABASE_ANON_KEY:-}
     container_name: lensora-frontend
     restart: unless-stopped
     ports:

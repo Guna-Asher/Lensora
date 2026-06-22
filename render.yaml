@@ -44,6 +44,12 @@ services:
         value: lensora
       - key: SUPABASE_JWT_SECRET
         sync: false
+      # MongoDB Atlas connection string — required for analytics + free-tier enforcement
+      - key: MONGO_URL
+        sync: false
+      # Public-facing app URL — used as HTTP-Referer on OpenRouter requests
+      - key: APP_URL
+        sync: false
 
   # ─────────────────────────────────────────────────────────
   # Frontend — React Static Site
