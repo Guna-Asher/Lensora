@@ -181,3 +181,15 @@ REACT_APP_SUPABASE_ANON_KEY= # Required for Supabase auth
 - [ ] History / saved sessions (no DB in V1)
 - [ ] Self-hosted model provider
 - [ ] Kubernetes deployment manifests
+
+
+### Analytics & Free Tier — v1.4 (2026-06-22)
+- [x] 3 free analyses for anonymous users — enforced on backend BEFORE run_analysis()
+- [x] MongoDB collections: anonymous_usage, analysis_events, analysis_feedback
+- [x] GET /api/anonymous/check — {can_scan, analysis_count, analyses_remaining, limit}
+- [x] POST /api/feedback — correct/incorrect, one per event_id, 409 on duplicate
+- [x] HomeScreen signup wall: "You've used all free scans." + Register/Login buttons
+- [x] CameraScreen: anonymous_id in FormData, limit check before capture, limit-reached overlay
+- [x] ResultsScreen: ThumbsUp/ThumbsDown feedback buttons + confirmation message
+- [x] event_id added to /api/analyze response (additive, existing fields unchanged)
+- [x] run_analysis(), screen_detector, image_validator, openrouter_provider — NOT MODIFIED

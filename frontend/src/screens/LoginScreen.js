@@ -39,6 +39,11 @@ export default function LoginScreen() {
     if (err) setError(err.message);
   };
 
+  const handleGuestMode = () => {
+    localStorage.setItem("lensora_guest", "true");
+    navigate(from, { replace: true });
+  };
+
   return (
     <div
       className="flex flex-col min-h-screen bg-[#0A0A0A] px-6 py-10"
@@ -127,6 +132,28 @@ export default function LoginScreen() {
           Create one
         </Link>
       </p>
+
+      {/* Divider */}
+      <div className="flex items-center gap-3 my-7">
+        <div className="flex-1 h-px bg-[#27272A]" />
+        <span className="text-xs text-[#3F3F46]">or</span>
+        <div className="flex-1 h-px bg-[#27272A]" />
+      </div>
+
+      {/* Continue as Guest */}
+      <div className="flex flex-col items-center gap-2">
+        <button
+          data-testid="continue-as-guest-button"
+          type="button"
+          onClick={handleGuestMode}
+          className="w-full h-14 bg-transparent border border-[#27272A] text-[#A1A1AA] rounded-2xl font-medium text-sm hover:border-[#52525B] hover:text-[#F8F8F8] active:opacity-70 transition-colors"
+        >
+          Continue as Guest
+        </button>
+        <p data-testid="guest-scan-hint" className="text-xs text-[#3F3F46]">
+          Includes 3 free analyses
+        </p>
+      </div>
     </div>
   );
 }
