@@ -140,8 +140,40 @@ export default function LoginScreen() {
         <div className="flex-1 h-px bg-[#27272A]" />
       </div>
 
+      {/* Continue with Google */}
+      <button
+        data-testid="google-signin-button"
+        type="button"
+        onClick={async () => {
+          if (!supabase) {
+            setError(
+              "Authentication is not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY."
+            );
+            return;
+          }
+          setLoading(true);
+          setError(null);
+          try {
+            await supabase.auth.signInWithOAuth({
+              provider: "google",
+              options: {
+                redirectTo: window.location.origin,
+              },
+            });
+          } catch (err) {
+            setError(err?.message || "Google sign-in failed. Please try again.");
+          } finally {
+            setLoading(false);
+          }
+        }}
+        disabled={loading}
+        className="w-full h-14 bg-transparent border border-[#27272A] text-[#F8F8F8] rounded-2xl font-medium text-sm hover:border-[#52525B] hover:text-[#FFFFFF] active:opacity-70 transition-colors disabled:opacity-50"
+      >
+        {loading ? "Redirecting…" : "Continue with Google"}
+      </button>
+
       {/* Continue as Guest */}
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-col items-center gap-2 mt-3">
         <button
           data-testid="continue-as-guest-button"
           type="button"
@@ -157,3 +189,4 @@ export default function LoginScreen() {
     </div>
   );
 }
+
